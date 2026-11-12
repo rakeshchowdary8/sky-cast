@@ -135,3 +135,4 @@
 - Destroying and recreating frames — wastes resources and loses widget state
 
 **Trade-offs:** Requires explicit show/hide management; all views are always in memory.
+

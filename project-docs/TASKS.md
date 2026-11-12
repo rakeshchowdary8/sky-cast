@@ -160,3 +160,4 @@
 - [ ] Verify app runs from a fresh virtual environment
 - [ ] Test on Windows
 - [ ] Consider PyInstaller packaging (future)
+

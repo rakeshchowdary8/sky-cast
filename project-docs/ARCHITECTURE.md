@@ -297,3 +297,4 @@ main.py
 | 96, 99 | Hail storm | 🌩️ |
 
 Full mapping in `utils/weather_icons.py`.
+

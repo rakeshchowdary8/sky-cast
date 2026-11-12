@@ -237,3 +237,4 @@ This project follows the AI-agent-friendly development workflow documented in `A
 ## License
 
 No license selected yet. All rights reserved until a license is chosen.
+

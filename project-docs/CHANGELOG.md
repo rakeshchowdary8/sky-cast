@@ -32,3 +32,4 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Notes
 - No application code written yet — this is the architecture phase
 - Awaiting user approval before Phase 2 begins
+

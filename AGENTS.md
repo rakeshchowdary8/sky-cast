@@ -243,3 +243,4 @@ DB_PATH = Path(__file__).parent.parent / "data" / "skyview.db"
 - CustomTkinter docs: https://customtkinter.tomschimansky.com/
 - WMO weather codes: https://open-meteo.com/en/docs (see "WMO Weather interpretation codes")
 - Project documentation: `project-docs/` directory
+

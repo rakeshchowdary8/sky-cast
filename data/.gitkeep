@@ -1,2 +1,3 @@
 # data directory — SQLite database stored here (created at runtime)
 # skyview.db is gitignored — only this placeholder file is tracked
+
