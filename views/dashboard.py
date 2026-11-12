@@ -249,16 +249,16 @@ class DashboardView(ctk.CTkFrame):
         uv_val = data.daily[0].uv_index_max if data.daily else 0.0
 
         metrics = [
-            ("💧", "Humidity",    format_humidity(data.humidity)),
-            ("💨", "Wind",        f"{format_wind_speed(data.wind_speed, self.wind_unit)} {degrees_to_cardinal(data.wind_direction)}"),
-            ("🌡️", "Pressure",   format_pressure(data.pressure)),
-            ("👁️", "Visibility", format_visibility(data.visibility)),
-            ("☀️", "UV Index",   format_uv_index(uv_val)),
+            ("💧", "Humidity",    format_humidity(data.humidity), self.colors["success"]),
+            ("💨", "Wind",        f"{format_wind_speed(data.wind_speed, self.wind_unit)} {degrees_to_cardinal(data.wind_direction)}", self.colors["accent"]),
+            ("🌡️", "Pressure",   format_pressure(data.pressure), self.colors["warning"]),
+            ("👁️", "Visibility", format_visibility(data.visibility), self.colors["accent"]),
+            ("☀️", "UV Index",   format_uv_index(uv_val), self.colors["warning"]),
         ]
 
-        for col_idx, (icon, label, value) in enumerate(metrics):
+        for col_idx, (icon, label, value, accent) in enumerate(metrics):
             card = WeatherCard(
-                frame, self.colors, icon=icon, label=label, value=value
+                frame, self.colors, icon=icon, label=label, value=value, accent_color=accent
             )
             card.grid(row=0, column=col_idx, padx=PAD_SM, pady=0, sticky="nsew")
             frame.columnconfigure(col_idx, weight=1)
@@ -416,3 +416,4 @@ class DashboardView(ctk.CTkFrame):
         self.wind_unit = wind_unit
         if self._current_data:
             self.display_weather(self._current_data)
+

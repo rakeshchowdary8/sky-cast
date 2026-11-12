@@ -4,7 +4,7 @@
   <strong>🌤️ A modern, professional weather desktop application built with Python</strong>
 </p>
 
-> **Status:** 🟢 **Complete & Working** — All Core Features Implemented  
+> **Status:** 🟢 **Complete & Working** — All Core Features Implemented + Modernized UI  
 > **Platform:** Windows / Linux / macOS  
 > **Python:** 3.10+
 
@@ -20,19 +20,79 @@
 
 ✅ **All features implemented and verified working**
 
-- 🔍 **City Search** — Search any city worldwide with Open-Meteo geocoding
-- 🌡️ **Current Weather** — Temperature, feels-like, humidity, wind, pressure, visibility, UV index
-- ⏱️ **Hourly Forecast** — Next 24 hours in a horizontal scrollable strip
-- 📅 **7-Day Forecast** — Daily max/min temperatures with conditions
-- 📊 **Weather Charts** — Matplotlib temperature graphs (dashboard + history)
-- ⭐ **Favorite Cities** — Save and quickly access favorite locations (add, remove, click to load)
-- 🕒 **Search History** — Revisit previous searches (click to reload, clear all)
-- 📂 **Weather History** — Browse recorded weather snapshots with filtering and historical trend chart
-- ⚙️ **Settings** — Dark/light theme, °C/°F, km/h/mph, default city on startup
-- 💾 **Persistent Storage** — SQLite database for all user data (survives restarts)
-- 🧵 **Non-blocking UI** — Background threads for all API requests via `ThreadPoolExecutor`
-- 🎨 **Modern UI** — CustomTkinter with rounded cards, smooth theme switching
-- ⚡ **Responsive** — Loading indicators, stale request cancellation, comprehensive error handling
+### 🔍 Smart City Search with Autocomplete
+- Real-time city suggestions as you type (debounced 200ms)
+- Keyboard navigation (↑/↓/Enter/Escape)
+- Shows city, state/province, country
+- Powered by Open-Meteo Geocoding API
+
+### 🌡️ Current Weather
+- Temperature, feels-like, humidity, wind, pressure, visibility, UV index
+- Weather condition with emoji (☀️🌧️❄️⛈️ etc.)
+- Sunrise/sunset times
+- Large hero temperature display
+
+### ⏱️ Hourly Forecast (24h)
+- Horizontal scrollable strip
+- Time, temperature, precipitation probability, condition emoji
+- Hover effects on each card
+
+### 📅 7-Day Forecast
+- Daily max/min temperatures
+- Condition emoji per day
+- "Today" label for current day
+- Hover effects on each card
+
+### 📊 Weather Charts
+- **Dashboard**: Temperature trend for next 24 hours (Matplotlib)
+- **History**: Historical temperature trend with gradient fill
+- Theme-aware colors (dark/light)
+- Smooth rendering embedded in Tkinter
+
+### ⭐ Favorite Cities
+- Save current city to favorites (one-click from dashboard)
+- Modern card-based list with hover states
+- Click to load weather instantly
+- Remove with confirmation
+- Empty state illustration
+
+### 🕒 Search History
+- Automatic logging of every successful search
+- Click to re-search any past city
+- Clear all history button
+- Modern card layout with timestamps
+
+### 📂 Weather History
+- Automatic weather snapshots after each API call
+- Filter by city dropdown
+- Historical temperature trend chart
+- Detailed metric display (temp, humidity, wind, condition)
+
+### ⚙️ Settings
+- **Theme**: Dark/Light with instant preview
+- **Temperature**: °C / °F with unit symbols
+- **Wind Speed**: km/h / mph
+- **Default City**: Auto-load on startup
+- All settings persist in SQLite across restarts
+
+### 💾 Persistent Storage
+- SQLite database for all user data (survives restarts)
+- 4 tables: favorites, search_history, weather_history, user_settings
+- WAL mode for better performance
+
+### 🧵 Non-blocking UI
+- Background threads for all API requests via `ThreadPoolExecutor`
+- Thread-safe GUI updates via `root.after()`
+- Request token system discards stale responses
+- Loading indicators during fetch
+
+### 🎨 Modern UI/UX
+- CustomTkinter with rounded cards, smooth theme switching
+- Hover effects on all interactive elements
+- Per-metric accent colors (humidity=green, wind=red, pressure=amber, etc.)
+- Animated sidebar active indicator
+- Empty state illustrations
+- Theme-aware styling throughout
 
 ---
 
@@ -77,7 +137,7 @@ SkyView/
 │   └── database.py            # All CRUD functions
 │
 ├── services/
-│   ├── geocoding.py           # City name → lat/lon
+│   ├── geocoding.py           # City name → lat/lon + suggestions
 │   ├── weather_api.py         # Open-Meteo forecast API client
 │   └── weather_service.py     # Geocoding + weather orchestrator
 │
@@ -85,16 +145,16 @@ SkyView/
 │   └── weather.py             # WeatherData, HourlyForecast, DailyForecast
 │
 ├── components/
-│   ├── sidebar.py             # Navigation sidebar
-│   ├── search_bar.py          # Search input widget
-│   ├── weather_card.py        # Info card widget
-│   └── forecast_card.py       # Forecast card widget
+│   ├── sidebar.py             # Navigation sidebar (animated indicator)
+│   ├── search_bar.py          # Search input with autocomplete
+│   ├── weather_card.py        # Info card widget (hover, accent colors)
+│   └── forecast_card.py       # Forecast card widget (hover effects)
 │
 ├── views/
 │   ├── dashboard.py           # Main dashboard
-│   ├── favorites.py           # Favorite cities
-│   ├── history.py             # Search & weather history
-│   └── settings.py            # App settings
+│   ├── favorites.py           # Favorite cities (modern cards)
+│   ├── history.py             # Search & weather history (tabs)
+│   └── settings.py            # App settings (modern design)
 │
 ├── utils/
 │   ├── helpers.py             # Formatting utilities
@@ -177,10 +237,11 @@ See `project-docs/ARCHITECTURE.md` for full schema details.
 
 1. User enters a city name and presses Search (or Enter)
 2. City name is validated locally (min 2 chars, valid characters)
-3. Geocoding API converts city → latitude/longitude (background thread)
-4. Forecast API fetches current, hourly, and daily weather data (background thread)
-5. UI updates with current conditions, forecasts, and charts (main thread via `root.after()`)
-6. Search is saved to `search_history`; weather snapshot saved to `weather_history`
+3. **Autocomplete**: Suggestions appear as you type (debounced)
+4. Geocoding API converts city → latitude/longitude (background thread)
+5. Forecast API fetches current, hourly, and daily weather data (background thread)
+6. UI updates with current conditions, forecasts, and charts (main thread via `root.after()`)
+7. Search is saved to `search_history`; weather snapshot saved to `weather_history`
 
 ---
 
@@ -202,15 +263,19 @@ All core functionality verified:
 1. ✅ App starts successfully
 2. ✅ Database auto-initializes with all 4 tables
 3. ✅ Valid city search (tested: New York, Berlin, Kāvali, London, Tokyo)
-4. ✅ Invalid city search shows clear error
-5. ✅ No internet connection handled gracefully
-6. ✅ Favorites CRUD (add, list, remove, click-to-load)
-7. ✅ Settings persistence across restarts (theme, units, default city)
-8. ✅ UI remains responsive during API requests (background threading)
-9. ✅ Search history stored and displayed
-10. ✅ Weather history stored, filtered, and charted
-11. ✅ Theme toggle (dark/light) applies immediately
-12. ✅ Unit conversion (Celsius/Fahrenheit, km/h/mph) applies immediately
+4. ✅ **Search autocomplete** (type "New" → Newark, New York, New Delhi...)
+5. ✅ **Keyboard navigation** in suggestions (↑/↓/Enter/Escape)
+6. ✅ Invalid city search shows clear error
+7. ✅ No internet connection handled gracefully
+8. ✅ Favorites CRUD (add, list, remove, click-to-load)
+9. ✅ Settings persistence across restarts (theme, units, default city)
+10. ✅ UI remains responsive during API requests (background threading)
+11. ✅ Search history stored and displayed
+12. ✅ Weather history stored, filtered, and charted
+13. ✅ Theme toggle (dark/light) applies immediately
+14. ✅ Unit conversion (Celsius/Fahrenheit, km/h/mph) applies immediately
+15. ✅ **Hover effects** on cards, buttons, sidebar items
+16. ✅ **Modern charts** with gradient fills and clean axes
 
 ---
 

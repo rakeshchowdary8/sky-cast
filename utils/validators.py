@@ -63,3 +63,4 @@ def validate_theme(theme: str) -> tuple[bool, str]:
     if theme.lower() not in valid:
         return False, f"Invalid theme '{theme}'. Must be 'dark' or 'light'."
     return True, ""
+

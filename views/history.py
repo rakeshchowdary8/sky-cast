@@ -1,5 +1,5 @@
 """
-views/history.py — Search history and weather history view with tabs.
+views/history.py — Modern search history and weather history view with tabs.
 """
 
 import customtkinter as ctk
@@ -18,7 +18,7 @@ from utils.helpers import format_datetime_full, format_temperature
 
 class HistoryView(ctk.CTkFrame):
     """
-    Tabbed view combining Search History and Weather History.
+    Modern tabbed view combining Search History and Weather History.
     """
 
     def __init__(self, parent, app, colors: dict,
@@ -32,32 +32,30 @@ class HistoryView(ctk.CTkFrame):
 
     def _build(self):
         # Header
+        header = ctk.CTkFrame(self, fg_color="transparent")
+        header.pack(fill="x", padx=PAD_LG, pady=(PAD_LG, PAD_SM))
+
         ctk.CTkLabel(
-            self, text="🕒 History",
+            header, text="🕒  History",
             font=FONT_TITLE, text_color=self.colors["text"],
-        ).pack(anchor="w", padx=PAD_LG, pady=(PAD_LG, PAD_SM))
+        ).pack(side="left")
 
-        # Tab buttons
-        tab_bar = ctk.CTkFrame(self, fg_color="transparent")
-        tab_bar.pack(fill="x", padx=PAD_LG, pady=(0, PAD_SM))
+        ctk.CTkLabel(
+            header, text="Your search and weather records",
+            font=FONT_SMALL, text_color=self.colors["text_dim"],
+        ).pack(side="left", padx=(PAD_MD, 0))
 
-        self._tab_search_btn = ctk.CTkButton(
-            tab_bar, text="Search History",
-            font=FONT_BODY, width=160, height=34,
-            fg_color=self.colors["accent"],
-            hover_color=self.colors.get("accent_hover", self.colors["accent"]),
-            text_color="#ffffff", corner_radius=6,
-            command=lambda: self._switch_tab("search"),
+        # Modern tab bar
+        self._tab_bar = ctk.CTkFrame(self, fg_color="transparent")
+        self._tab_bar.pack(fill="x", padx=PAD_LG, pady=(0, PAD_SM))
+
+        self._tab_search_btn = self._create_tab_button(
+            self._tab_bar, "🔍  Search History", "search", active=True
         )
         self._tab_search_btn.pack(side="left", padx=(0, PAD_SM))
 
-        self._tab_weather_btn = ctk.CTkButton(
-            tab_bar, text="Weather History",
-            font=FONT_BODY, width=160, height=34,
-            fg_color=self.colors["card"],
-            hover_color=self.colors["card_hover"],
-            text_color=self.colors["text_dim"], corner_radius=6,
-            command=lambda: self._switch_tab("weather"),
+        self._tab_weather_btn = self._create_tab_button(
+            self._tab_bar, "📊  Weather History", "weather", active=False
         )
         self._tab_weather_btn.pack(side="left")
 
@@ -68,6 +66,26 @@ class HistoryView(ctk.CTkFrame):
         self._active_tab = "search"
         self._build_search_tab()
 
+    def _create_tab_button(self, parent, text: str, tab_id: str, active: bool) -> ctk.CTkButton:
+        """Create a styled tab button."""
+        if active:
+            fg = self.colors["accent"]
+            text_color = "#ffffff"
+        else:
+            fg = self.colors["card"]
+            text_color = self.colors["text_dim"]
+
+        btn = ctk.CTkButton(
+            parent, text=text,
+            font=FONT_BODY, height=38,
+            fg_color=fg,
+            hover_color=self.colors["card_hover"],
+            text_color=text_color,
+            corner_radius=10,
+            command=lambda: self._switch_tab(tab_id),
+        )
+        return btn
+
     # -----------------------------------------------------------------------
     # Tab management
     # -----------------------------------------------------------------------
@@ -76,6 +94,7 @@ class HistoryView(ctk.CTkFrame):
         self._active_tab = tab
         for w in self._content.winfo_children():
             w.destroy()
+
         if tab == "search":
             self._tab_search_btn.configure(
                 fg_color=self.colors["accent"], text_color="#ffffff"
@@ -98,6 +117,7 @@ class HistoryView(ctk.CTkFrame):
     # -----------------------------------------------------------------------
 
     def _build_search_tab(self):
+        # Toolbar
         toolbar = ctk.CTkFrame(self._content, fg_color="transparent")
         toolbar.pack(fill="x", padx=PAD_LG, pady=(0, PAD_SM))
 
@@ -106,16 +126,22 @@ class HistoryView(ctk.CTkFrame):
             font=FONT_MEDIUM, text_color=self.colors["text"],
         ).pack(side="left")
 
-        ctk.CTkButton(
-            toolbar, text="🗑️ Clear All",
-            font=FONT_SMALL, width=100, height=30,
-            fg_color="#c0392b", hover_color="#922b21",
-            text_color="#ffffff", corner_radius=6,
+        clear_btn = ctk.CTkButton(
+            toolbar, text="🗑️  Clear All",
+            font=FONT_SMALL, width=110, height=32,
+            fg_color="transparent",
+            hover_color="#c0392b",
+            text_color=self.colors["warning"],
+            border_width=1,
+            border_color=self.colors["warning"],
+            corner_radius=8,
             command=self._clear_search_history,
-        ).pack(side="right")
+        )
+        clear_btn.pack(side="right")
 
+        # Search list with cards
         self._search_list = ctk.CTkScrollableFrame(
-            self._content, fg_color="transparent"
+            self._content, fg_color="transparent", corner_radius=0
         )
         self._search_list.pack(fill="both", expand=True, padx=PAD_LG, pady=0)
 
@@ -127,45 +153,97 @@ class HistoryView(ctk.CTkFrame):
 
         records = database.get_recent_searches(limit=50)
         if not records:
-            ctk.CTkLabel(
-                self._search_list,
-                text="No search history yet.",
-                font=FONT_BODY, text_color=self.colors["text_dim"],
-            ).pack(pady=PAD_LG * 3)
+            self._build_empty_state(self._search_list, "🔍", "No search history yet",
+                                    "Search for cities to see them here.")
             return
 
         for rec in records:
-            self._build_search_row(rec)
+            self._build_search_card(rec)
 
-    def _build_search_row(self, rec: dict):
-        row = ctk.CTkFrame(
+    def _build_search_card(self, rec: dict):
+        """Build a modern card for a search history entry."""
+        card = ctk.CTkFrame(
             self._search_list,
-            fg_color=self.colors["card"], corner_radius=CARD_CORNER_RADIUS,
+            fg_color=self.colors["card"],
+            corner_radius=CARD_CORNER_RADIUS,
+            border_width=1,
+            border_color=self.colors["border"],
         )
-        row.pack(fill="x", pady=2)
+        card.pack(fill="x", pady=PAD_SM // 2)
 
-        info = ctk.CTkFrame(row, fg_color="transparent")
-        info.pack(side="left", fill="x", expand=True, padx=PAD_MD, pady=PAD_SM)
+        # Hover effect
+        default_fg = self.colors["card"]
+        hover_fg = self.colors["card_hover"]
+        default_border = self.colors["border"]
+        hover_border = self.colors["accent"]
+
+        def on_enter(_):
+            card.configure(fg_color=hover_fg, border_color=hover_border)
+        def on_leave(_):
+            card.configure(fg_color=default_fg, border_color=default_border)
+
+        card.bind("<Enter>", on_enter)
+        card.bind("<Leave>", on_leave)
+
+        content = ctk.CTkFrame(card, fg_color="transparent")
+        content.pack(fill="x", padx=PAD_MD, pady=PAD_MD)
+
+        # Left: City info
+        info = ctk.CTkFrame(content, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True)
 
         city_text = f"{rec['city_name']}, {rec['country']}" if rec.get("country") else rec["city_name"]
         ctk.CTkLabel(
-            info, text=f"📍 {city_text}",
+            info, text=f"📍  {city_text}",
             font=FONT_BODY, text_color=self.colors["text"], anchor="w",
         ).pack(anchor="w")
+
         ctk.CTkLabel(
             info,
             text=format_datetime_full(rec["searched_at"]),
             font=FONT_LABEL, text_color=self.colors["text_dim"],
         ).pack(anchor="w")
 
-        ctk.CTkButton(
-            row, text="Search Again",
-            font=FONT_SMALL, width=110, height=28,
+        # Right: Action button
+        search_btn = ctk.CTkButton(
+            content, text="🔍  Search Again",
+            font=FONT_SMALL, width=120, height=34,
             fg_color=self.colors["accent"],
             hover_color=self.colors.get("accent_hover", self.colors["accent"]),
-            text_color="#ffffff", corner_radius=6,
+            text_color="#ffffff",
+            corner_radius=8,
             command=lambda r=rec: self._re_search(r),
-        ).pack(side="right", padx=PAD_MD)
+        )
+        search_btn.pack(side="right", padx=PAD_SM)
+
+        # Bind hover to card
+        search_btn.bind("<Enter>", on_enter)
+        search_btn.bind("<Leave>", on_leave)
+
+    def _build_empty_state(self, parent, icon: str, title: str, message: str):
+        """Show empty state illustration."""
+        empty_frame = ctk.CTkFrame(
+            parent, fg_color=self.colors["card"],
+            corner_radius=CARD_CORNER_RADIUS, border_width=1,
+            border_color=self.colors["border"],
+        )
+        empty_frame.pack(fill="x", pady=PAD_LG * 2)
+
+        ctk.CTkLabel(
+            empty_frame, text=icon,
+            font=("Segoe UI Emoji", 48),
+        ).pack(pady=(PAD_LG * 2, PAD_MD))
+
+        ctk.CTkLabel(
+            empty_frame, text=title,
+            font=FONT_MEDIUM, text_color=self.colors["text"],
+        ).pack()
+
+        ctk.CTkLabel(
+            empty_frame, text=message,
+            font=FONT_BODY, text_color=self.colors["text_dim"],
+            justify="center",
+        ).pack(pady=(PAD_SM, PAD_LG * 2))
 
     def _clear_search_history(self):
         database.clear_search_history()
@@ -201,6 +279,10 @@ class HistoryView(ctk.CTkFrame):
             button_color=self.colors["accent"],
             button_hover_color=self.colors.get("accent_hover", self.colors["accent"]),
             text_color=self.colors["text"],
+            dropdown_fg_color=self.colors["card"],
+            dropdown_hover_color=self.colors["card_hover"],
+            dropdown_text_color=self.colors["text"],
+            corner_radius=8,
             command=lambda _: self._refresh_weather_history(),
         )
         city_menu.pack(side="left")
@@ -215,16 +297,21 @@ class HistoryView(ctk.CTkFrame):
         self._chart_section = ctk.CTkFrame(self._content, fg_color="transparent")
         self._chart_section.pack(fill="both", expand=True, padx=PAD_LG, pady=(0, PAD_LG))
 
+        chart_header = ctk.CTkFrame(self._chart_section, fg_color="transparent")
+        chart_header.pack(fill="x", pady=(0, PAD_SM))
+
         ctk.CTkLabel(
-            self._chart_section,
-            text="Historical Temperature",
+            chart_header,
+            text="Historical Temperature Trend",
             font=FONT_MEDIUM, text_color=self.colors["text"],
-        ).pack(anchor="w", pady=(0, PAD_SM))
+        ).pack(side="left")
 
         self._chart_placeholder = ctk.CTkFrame(
             self._chart_section,
             fg_color=self.colors["card"],
             corner_radius=CARD_CORNER_RADIUS,
+            border_width=1,
+            border_color=self.colors["border"],
         )
         self._chart_placeholder.pack(fill="both", expand=True)
 
@@ -241,36 +328,52 @@ class HistoryView(ctk.CTkFrame):
         )
 
         if not records:
-            ctk.CTkLabel(
-                self._weather_list,
-                text="No weather history yet.",
-                font=FONT_BODY, text_color=self.colors["text_dim"],
-            ).pack(pady=PAD_LG)
+            self._build_empty_state(self._weather_list, "📊", "No weather history yet",
+                                    "Weather snapshots appear here after searching.")
         else:
             for rec in records:
-                self._build_weather_row(rec)
+                self._build_weather_card(rec)
 
         self._build_weather_chart(records)
 
-    def _build_weather_row(self, rec: dict):
-        row = ctk.CTkFrame(
+    def _build_weather_card(self, rec: dict):
+        """Build a modern card for a weather history entry."""
+        card = ctk.CTkFrame(
             self._weather_list,
-            fg_color=self.colors["card"], corner_radius=CARD_CORNER_RADIUS,
+            fg_color=self.colors["card"],
+            corner_radius=CARD_CORNER_RADIUS,
+            border_width=1,
+            border_color=self.colors["border"],
         )
-        row.pack(fill="x", pady=2)
+        card.pack(fill="x", pady=PAD_SM // 2)
 
-        info = ctk.CTkFrame(row, fg_color="transparent")
-        info.pack(side="left", fill="x", expand=True, padx=PAD_MD, pady=PAD_SM)
+        # Hover effect
+        default_fg = self.colors["card"]
+        hover_fg = self.colors["card_hover"]
+        default_border = self.colors["border"]
+        hover_border = self.colors["accent"]
+
+        def on_enter(_):
+            card.configure(fg_color=hover_fg, border_color=hover_border)
+        def on_leave(_):
+            card.configure(fg_color=default_fg, border_color=default_border)
+
+        card.bind("<Enter>", on_enter)
+        card.bind("<Leave>", on_leave)
+
+        info = ctk.CTkFrame(card, fg_color="transparent")
+        info.pack(fill="x", padx=PAD_MD, pady=PAD_MD)
 
         temp_str = format_temperature(rec["temperature"], self.temp_unit)
         ctk.CTkLabel(
             info,
-            text=f"📍 {rec['city_name']}   🌡️ {temp_str}   💧 {rec['humidity']:.0f}%   💨 {rec['wind_speed']:.0f} km/h",
+            text=f"📍  {rec['city_name']}     🌡️  {temp_str}     💧  {rec['humidity']:.0f}%     💨  {rec['wind_speed']:.0f} km/h",
             font=FONT_BODY, text_color=self.colors["text"], anchor="w",
         ).pack(anchor="w")
+
         ctk.CTkLabel(
             info,
-            text=f"{rec['weather_condition']}   •   {format_datetime_full(rec['recorded_at'])}",
+            text=f"{rec['weather_condition']}     •     {format_datetime_full(rec['recorded_at'])}",
             font=FONT_LABEL, text_color=self.colors["text_dim"],
         ).pack(anchor="w")
 
@@ -282,9 +385,10 @@ class HistoryView(ctk.CTkFrame):
         if len(records) < 2:
             ctk.CTkLabel(
                 self._chart_placeholder,
-                text="Not enough data to draw a chart yet.",
+                text="📈\nNot enough data to draw a chart yet.\nSearch for more cities to see trends.",
                 font=FONT_BODY, text_color=self.colors["text_dim"],
-            ).pack(pady=PAD_LG)
+                justify="center",
+            ).pack(pady=PAD_LG * 2, expand=True)
             return
 
         # Reverse so oldest is on the left
@@ -299,14 +403,21 @@ class HistoryView(ctk.CTkFrame):
         fig, ax = plt.subplots(figsize=(9, 2.5))
         fig.patch.set_facecolor(bg)
         ax.set_facecolor(bg)
-        ax.plot(range(len(temps)), temps, color=line_color, linewidth=2, marker="o", markersize=4)
-        ax.fill_between(range(len(temps)), temps, min(temps) - 1, alpha=0.2, color=line_color)
-        ax.set_ylabel("°C", color=text_dim, fontsize=8)
-        ax.tick_params(colors=text_dim, labelsize=7)
+
+        # Gradient fill
+        ax.plot(range(len(temps)), temps, color=line_color, linewidth=2.5, marker="o", markersize=5,
+                markerfacecolor=line_color, markeredgecolor=bg, markeredgewidth=2, zorder=3)
+        ax.fill_between(range(len(temps)), temps, min(temps) - 1, alpha=0.15, color=line_color)
+
+        ax.set_ylabel("°C", color=text_dim, fontsize=9)
+        ax.tick_params(colors=text_dim, labelsize=8)
         ax.set_xticks(range(len(dates)))
-        ax.set_xticklabels(dates, rotation=45, ha="right", fontsize=6)
+        ax.set_xticklabels(dates, rotation=45, ha="right", fontsize=7)
         for spine in ax.spines.values():
             spine.set_edgecolor(self.colors.get("border", "#444"))
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
         plt.tight_layout(pad=0.5)
 
         if self._chart_canvas:

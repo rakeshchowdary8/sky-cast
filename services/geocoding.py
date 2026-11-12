@@ -21,7 +21,7 @@ class CityNotFoundError(GeocodingError):
 
 def geocode_city(city_name: str) -> dict:
     """
-    Resolve a city name to geographic coordinates.
+    Resolve a city name to geographic coordinates (first match only).
 
     Args:
         city_name: User-entered city name string.
@@ -33,9 +33,43 @@ def geocode_city(city_name: str) -> dict:
         CityNotFoundError: If the city is not found in the geocoding API.
         GeocodingError:    For network errors, timeouts, or unexpected responses.
     """
+    results = _fetch_geocoding_results(city_name.strip(), count=1)
+    if not results:
+        raise CityNotFoundError(
+            f"City '{city_name}' not found. Please check the spelling and try again."
+        )
+    return _parse_geocoding_result(results[0])
+
+
+def get_city_suggestions(query: str, max_results: int = 8) -> list[dict]:
+    """
+    Get city suggestions for autocomplete based on partial query.
+
+    Args:
+        query: Partial city name (minimum 2 characters).
+        max_results: Maximum number of suggestions to return.
+
+    Returns:
+        List of dicts with keys: 'city', 'country', 'latitude', 'longitude', 'admin1'.
+        Returns empty list on error or if query too short.
+    """
+    if not query or len(query.strip()) < 2:
+        return []
+
+    try:
+        results = _fetch_geocoding_results(query.strip(), count=max_results)
+        return [_parse_geocoding_result(r) for r in results]
+    except Exception:
+        # Silently fail for suggestions - don't disrupt typing
+        logger.debug("Failed to fetch suggestions for: %s", query)
+        return []
+
+
+def _fetch_geocoding_results(city_name: str, count: int = 10) -> list:
+    """Internal: fetch raw results from geocoding API."""
     params = {
-        "name": city_name.strip(),
-        "count": 1,
+        "name": city_name,
+        "count": count,
         "language": "en",
         "format": "json",
     }
@@ -57,19 +91,19 @@ def geocode_city(city_name: str) -> dict:
     except Exception as e:
         raise GeocodingError(f"Unexpected geocoding error: {e}")
 
-    results = data.get("results")
-    if not results:
-        raise CityNotFoundError(
-            f"City '{city_name}' not found. Please check the spelling and try again."
-        )
+    return data.get("results", [])
 
-    result = results[0]
+
+def _parse_geocoding_result(result: dict) -> dict:
+    """Parse a single geocoding result into standardized dict."""
     try:
         return {
             "city": result["name"],
             "country": result.get("country", ""),
+            "admin1": result.get("admin1", ""),  # State/province
             "latitude": float(result["latitude"]),
             "longitude": float(result["longitude"]),
         }
     except (KeyError, ValueError, TypeError) as e:
         raise GeocodingError(f"Unexpected geocoding response format: {e}")
+

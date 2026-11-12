@@ -27,13 +27,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - WMO weather code to description/emoji mapping (43 codes)
 - Input validation for city names and settings
 
+### Modernized (2026-11-12)
+- **Search Autocomplete**: Real-time city suggestions as you type (debounced, keyboard navigable)
+- **Modern UI Components**: Hover effects, smooth transitions, card-based layouts
+- **Enhanced Sidebar**: Animated active indicator, improved visual hierarchy
+- **Weather Cards**: Per-metric accent colors, hover animations, border highlights
+- **Forecast Cards**: Hover effects with accent borders, better visual feedback
+- **Favorites View**: Modern card design with hover states, empty state illustration
+- **History View**: Tabbed interface with modern cards, empty states, improved charts
+- **Settings View**: Redesigned with icons, better segmented buttons, helper text
+- **Theme-Aware Styling**: All components properly respond to theme changes
+
 ### Changed
 - Updated all documentation to reflect completed implementation
+- SearchBar now uses `get_city_suggestions()` for autocomplete
+- Geocoding service exposes `get_city_suggestions()` for partial matching
+- WeatherCard accepts `accent_color` for per-metric theming
 
 ### Fixed
 - Database path resolution using Path(__file__) not os.getcwd()
 - Thread-safe GUI updates from background workers
 - Duplicate favorite city prevention via UNIQUE constraint
+- Sidebar indicator width/height constructor issue
 
 ---
 

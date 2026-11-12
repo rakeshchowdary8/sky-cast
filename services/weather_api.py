@@ -137,3 +137,4 @@ def _parse_response(data: dict, city: str, country: str,
 
     except (KeyError, TypeError, ValueError) as e:
         raise WeatherAPIError(f"Failed to parse weather API response: {e}")
+

@@ -141,3 +141,4 @@ def degrees_to_cardinal(degrees: int) -> str:
             "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
     idx = round(degrees / (360 / len(dirs))) % len(dirs)
     return dirs[idx]
+

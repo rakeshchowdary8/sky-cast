@@ -41,3 +41,4 @@ def get_connection():
     finally:
         if conn:
             conn.close()
+

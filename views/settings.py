@@ -1,5 +1,5 @@
 """
-views/settings.py — Application settings view.
+views/settings.py — Modern application settings view.
 Allows changing theme, temperature unit, wind unit, and default city.
 All changes are saved to SQLite and applied immediately.
 """
@@ -7,7 +7,7 @@ All changes are saved to SQLite and applied immediately.
 import customtkinter as ctk
 from config.settings import (
     FONT_TITLE, FONT_MEDIUM, FONT_BODY, FONT_SMALL,
-    PAD_LG, PAD_MD, PAD_SM, CARD_CORNER_RADIUS,
+    PAD_LG, PAD_MD, PAD_SM, PAD_XS, CARD_CORNER_RADIUS,
 )
 from database import database
 
@@ -34,38 +34,48 @@ class SettingsView(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=PAD_LG, pady=PAD_LG)
 
+        # Header
+        header = ctk.CTkFrame(scroll, fg_color="transparent")
+        header.pack(fill="x", pady=(0, PAD_LG))
+
         ctk.CTkLabel(
-            scroll, text="⚙️ Settings",
+            header, text="⚙️  Settings",
             font=FONT_TITLE, text_color=self.colors["text"],
-        ).pack(anchor="w", pady=(0, PAD_LG))
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            header, text="Customize your SkyView experience",
+            font=FONT_SMALL, text_color=self.colors["text_dim"],
+        ).pack(side="left", padx=(PAD_MD, 0))
 
         # --- Theme ---
-        self._build_section(scroll, "🎨 Appearance", [
+        self._build_section(scroll, "🎨  Appearance", [
             self._build_theme_row,
         ])
 
         # --- Units ---
-        self._build_section(scroll, "📏 Units", [
+        self._build_section(scroll, "📏  Units", [
             self._build_temp_unit_row,
             self._build_wind_unit_row,
         ])
 
         # --- Default City ---
-        self._build_section(scroll, "🏙️ Default City", [
+        self._build_section(scroll, "🏙️  Default City", [
             self._build_default_city_row,
         ])
 
         # Save button
-        ctk.CTkButton(
-            scroll, text="💾 Save Settings",
+        self._save_btn = ctk.CTkButton(
+            scroll, text="💾  Save Settings",
             font=FONT_MEDIUM,
-            height=42,
+            height=44,
             fg_color=self.colors["accent"],
             hover_color=self.colors.get("accent_hover", self.colors["accent"]),
             text_color="#ffffff",
-            corner_radius=8,
+            corner_radius=10,
             command=self._save_settings,
-        ).pack(fill="x", pady=(PAD_LG, 0))
+        )
+        self._save_btn.pack(fill="x", pady=(PAD_LG, 0))
 
         # Status label
         self._status_label = ctk.CTkLabel(
@@ -75,24 +85,35 @@ class SettingsView(ctk.CTkFrame):
         self._status_label.pack(pady=PAD_SM)
 
     def _build_section(self, parent, title: str, row_builders: list):
-        """Build a labeled settings section card."""
+        """Build a modern settings section card."""
         card = ctk.CTkFrame(
             parent, fg_color=self.colors["card"],
             corner_radius=CARD_CORNER_RADIUS,
+            border_width=1,
+            border_color=self.colors["border"],
         )
         card.pack(fill="x", pady=(0, PAD_MD))
 
-        ctk.CTkLabel(
-            card, text=title,
-            font=FONT_MEDIUM, text_color=self.colors["text"],
-        ).pack(anchor="w", padx=PAD_MD, pady=(PAD_MD, PAD_SM))
+        # Section header
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=PAD_MD, pady=(PAD_MD, PAD_SM))
 
+        ctk.CTkLabel(
+            header, text=title,
+            font=FONT_MEDIUM, text_color=self.colors["text"],
+        ).pack(side="left")
+
+        # Divider
         ctk.CTkFrame(card, height=1, fg_color=self.colors["border"]).pack(
             fill="x", padx=PAD_MD
         )
 
+        # Content area
+        content = ctk.CTkFrame(card, fg_color="transparent")
+        content.pack(fill="x", padx=PAD_MD, pady=(PAD_SM, PAD_MD))
+
         for builder in row_builders:
-            builder(card)
+            builder(content)
 
     # -----------------------------------------------------------------------
     # Row builders
@@ -100,7 +121,7 @@ class SettingsView(ctk.CTkFrame):
 
     def _build_theme_row(self, parent):
         row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=PAD_MD, pady=PAD_SM)
+        row.pack(fill="x", pady=PAD_SM)
 
         ctk.CTkLabel(
             row, text="Theme:",
@@ -108,20 +129,26 @@ class SettingsView(ctk.CTkFrame):
         ).pack(side="left", padx=(0, PAD_MD))
 
         self._theme_var = ctk.StringVar(value=self._settings.get("theme", "dark").capitalize())
-        ctk.CTkSegmentedButton(
+        theme_seg = ctk.CTkSegmentedButton(
             row,
-            values=["Dark", "Light"],
+            values=["☀️  Light", "🌙  Dark"],
             variable=self._theme_var,
             font=FONT_SMALL,
+            height=36,
             selected_color=self.colors["accent"],
             selected_hover_color=self.colors.get("accent_hover", self.colors["accent"]),
             unselected_color=self.colors["border"],
+            unselected_hover_color=self.colors["card_hover"],
             text_color=self.colors["text"],
-        ).pack(side="left")
+            corner_radius=8,
+        )
+        theme_seg.pack(side="left")
+        # Map display values to internal values
+        self._theme_display_map = {"☀️  Light": "light", "🌙  Dark": "dark"}
 
     def _build_temp_unit_row(self, parent):
         row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=PAD_MD, pady=PAD_SM)
+        row.pack(fill="x", pady=PAD_SM)
 
         ctk.CTkLabel(
             row, text="Temperature:",
@@ -131,18 +158,21 @@ class SettingsView(ctk.CTkFrame):
         self._temp_var = ctk.StringVar(value=self._settings.get("temperature_unit", "Celsius"))
         ctk.CTkSegmentedButton(
             row,
-            values=["Celsius", "Fahrenheit"],
+            values=["°C  Celsius", "°F  Fahrenheit"],
             variable=self._temp_var,
             font=FONT_SMALL,
+            height=36,
             selected_color=self.colors["accent"],
             selected_hover_color=self.colors.get("accent_hover", self.colors["accent"]),
             unselected_color=self.colors["border"],
+            unselected_hover_color=self.colors["card_hover"],
             text_color=self.colors["text"],
+            corner_radius=8,
         ).pack(side="left")
 
     def _build_wind_unit_row(self, parent):
         row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=PAD_MD, pady=PAD_SM)
+        row.pack(fill="x", pady=PAD_SM)
 
         ctk.CTkLabel(
             row, text="Wind Speed:",
@@ -155,15 +185,18 @@ class SettingsView(ctk.CTkFrame):
             values=["km/h", "mph"],
             variable=self._wind_var,
             font=FONT_SMALL,
+            height=36,
             selected_color=self.colors["accent"],
             selected_hover_color=self.colors.get("accent_hover", self.colors["accent"]),
             unselected_color=self.colors["border"],
+            unselected_hover_color=self.colors["card_hover"],
             text_color=self.colors["text"],
+            corner_radius=8,
         ).pack(side="left")
 
     def _build_default_city_row(self, parent):
         row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=PAD_MD, pady=PAD_SM)
+        row.pack(fill="x", pady=PAD_SM)
 
         ctk.CTkLabel(
             row, text="Default City:",
@@ -172,25 +205,39 @@ class SettingsView(ctk.CTkFrame):
 
         self._default_city_entry = ctk.CTkEntry(
             row,
-            placeholder_text="Enter city name...",
-            width=200, height=32,
+            placeholder_text="Enter city name (e.g., New York, London, Tokyo)...",
+            width=280, height=38,
             font=FONT_BODY,
             fg_color=self.colors["input_bg"],
             text_color=self.colors["text"],
             border_color=self.colors["border"],
+            corner_radius=8,
         )
         default_city = self._settings.get("default_city", "")
         if default_city:
             self._default_city_entry.insert(0, default_city)
         self._default_city_entry.pack(side="left")
 
+        # Helper text
+        ctk.CTkLabel(
+            parent, text="This city will be loaded automatically on startup.",
+            font=FONT_SMALL, text_color=self.colors["text_dim"],
+        ).pack(anchor="w", pady=(PAD_XS, 0))
+
     # -----------------------------------------------------------------------
     # Save
     # -----------------------------------------------------------------------
 
     def _save_settings(self):
-        theme = self._theme_var.get().lower()
+        # Get values from UI (map theme display to internal)
+        theme_display = self._theme_var.get()
+        theme = self._theme_display_map.get(theme_display, theme_display.lower())
         temp_unit = self._temp_var.get()
+        # Extract unit from display (e.g., "°C  Celsius" -> "Celsius")
+        if "Celsius" in temp_unit:
+            temp_unit = "Celsius"
+        elif "Fahrenheit" in temp_unit:
+            temp_unit = "Fahrenheit"
         wind_unit = self._wind_var.get()
         default_city = self._default_city_entry.get().strip()
 
@@ -204,14 +251,14 @@ class SettingsView(ctk.CTkFrame):
 
         if success:
             self._status_label.configure(
-                text="✅ Settings saved!",
+                text="✅  Settings saved successfully!",
                 text_color=self.colors["success"],
             )
             # Apply changes immediately in the app
             self.app.apply_settings(theme=theme, temp_unit=temp_unit, wind_unit=wind_unit)
         else:
             self._status_label.configure(
-                text="❌ Failed to save settings.",
+                text="❌  Failed to save settings.",
                 text_color=self.colors["warning"],
             )
 
@@ -226,13 +273,15 @@ class SettingsView(ctk.CTkFrame):
         """Refresh settings from DB when view is activated."""
         self._settings = database.get_settings()
         # Sync UI controls
-        self._theme_var.set(self._settings.get("theme", "dark").capitalize())
-        self._temp_var.set(self._settings.get("temperature_unit", "Celsius"))
+        theme = self._settings.get("theme", "dark")
+        self._theme_var.set("🌙  Dark" if theme == "dark" else "☀️  Light")
+        self._temp_var.set("°C  Celsius" if self._settings.get("temperature_unit") == "Celsius" else "°F  Fahrenheit")
         self._wind_var.set(self._settings.get("wind_unit", "km/h"))
         city = self._settings.get("default_city", "")
         self._default_city_entry.delete(0, "end")
         if city:
             self._default_city_entry.insert(0, city)
+        self._status_label.configure(text="")
 
     def apply_colors(self, colors: dict):
         self.colors = colors

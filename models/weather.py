@@ -71,3 +71,4 @@ class WeatherData:
         dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
         idx = round(self.wind_direction / 45) % 8
         return dirs[idx]
+

@@ -278,3 +278,4 @@ def update_settings(temperature_unit: str, wind_unit: str,
     except Exception as e:
         logger.error("update_settings failed: %s", e)
         return False
+

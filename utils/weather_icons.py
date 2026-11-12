@@ -77,3 +77,4 @@ def get_emoji(code: int, is_day: int = 1) -> str:
 def get_all_codes() -> list[int]:
     """Return a sorted list of all supported WMO codes."""
     return sorted(_WMO_MAP.keys())
+

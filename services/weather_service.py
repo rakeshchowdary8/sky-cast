@@ -61,3 +61,4 @@ def fetch_weather(city_name: str) -> WeatherData:
                 weather.city, weather.temperature, weather.weather_code)
 
     return weather
+
