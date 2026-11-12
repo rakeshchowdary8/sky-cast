@@ -5,7 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — SkyCast Premium Redesign
+## [Unreleased] — SkyCast Phase 15: Simplified Search & Clean Sidebar
+
+### Changed
+- **Removed Search Autocomplete**: Search bar no longer shows autocomplete suggestions dropdown
+- **Removed Loading State on Search Button**: Search button no longer shows loading spinner during API calls
+- **Removed Sidebar Active Indicator**: Blue vertical line indicator removed from sidebar navigation items
+- **Simplified SearchBar Component**: Clean search input with search button only
+
+### Added
+- **Error Toast Notification**: "City not found" and other errors now display as a toast notification at the top of the dashboard with dismiss button and auto-hide after 5 seconds
+
+---
+
+## [Unreleased] — SkyCast Phase 14: Light Mode Only & Search Dropdown Z-Index Fix
 
 ### Added — Phase 11: Premium UI Redesign (SkyCast)
 - **Premium Dark Theme**: Deep navy/charcoal backgrounds (#0a0e17), soft blue/cyan/purple accents (#3b82f6, #06b6d4, #a855f7)

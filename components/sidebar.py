@@ -59,7 +59,6 @@ class Sidebar(ctk.CTkFrame):
         self._text_labels: dict[str, ctk.CTkLabel] = {}
         self._btn_frames: dict[str, ctk.CTkFrame] = {}
         self._active_view = "dashboard"
-        self._indicator = None
         self._is_expanded = True
         self._animating = False
         self._logo_text_widgets = []
@@ -147,15 +146,6 @@ class Sidebar(ctk.CTkFrame):
 
         for view_name, icon, label in self.NAV_ITEMS:
             self._create_nav_item(view_name, icon, label)
-
-        # Create active indicator (animated bar on left)
-        self._indicator = ctk.CTkFrame(
-            self._nav_frame,
-            width=3,
-            height=44,
-            fg_color=self.colors["primary"],
-            corner_radius=2,
-        )
 
         # Version label at bottom (hidden when collapsed)
         version_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -297,7 +287,7 @@ class Sidebar(ctk.CTkFrame):
         self.on_navigate(view_name)
 
     def _set_active(self, view_name: str, animate=True):
-        """Highlight the active nav button with smooth indicator animation."""
+        """Highlight the active nav button."""
         # Reset previous
         if self._active_view in self._icon_labels:
             self._icon_labels[self._active_view].configure(text_color=self.colors["text_muted"])
@@ -314,42 +304,6 @@ class Sidebar(ctk.CTkFrame):
             self._text_labels[view_name].configure(text_color=self.colors["primary"])
         if view_name in self._btn_frames:
             self._btn_frames[view_name].configure(fg_color=self.colors["primary_light"])
-
-        # Move indicator to active button
-        if animate:
-            self._animate_indicator(view_name)
-        else:
-            btn_frame = self._btn_frames.get(view_name)
-            if btn_frame:
-                target_y = btn_frame.winfo_y()
-                self._indicator.place(x=0, y=target_y)
-                self._indicator.lift()
-
-    def _animate_indicator(self, view_name: str):
-        """Animate indicator to target button position with easing."""
-        btn_frame = self._btn_frames.get(view_name)
-        if not btn_frame:
-            return
-
-        # Align indicator with the nav button frame (same height=44, no extra offset)
-        target_y = btn_frame.winfo_y()
-
-        def animate_step(current_y, target_y, step=0):
-            total_steps = 12
-            if step >= total_steps:
-                self._indicator.place(x=0, y=target_y)
-                return
-
-            progress = step / total_steps
-            eased = ease_out_cubic(progress)
-            current_y = current_y + (target_y - current_y) * eased
-
-            self._indicator.place(x=0, y=int(current_y))
-            self.after(ANIM_NORMAL // total_steps, lambda: animate_step(current_y, target_y, step + 1))
-
-        current_y = self._indicator.winfo_y() if self._indicator.winfo_ismapped() else target_y
-        animate_step(current_y, target_y)
-        self._indicator.lift()
 
     def _toggle_sidebar(self):
         """Toggle sidebar expanded/collapsed state with smooth animation."""
@@ -416,7 +370,6 @@ class Sidebar(ctk.CTkFrame):
         """Re-apply colors after a theme change."""
         self.colors = colors
         self.configure(fg_color=colors["sidebar"])
-        self._indicator.configure(fg_color=colors["primary"])
 
         # Logo
         self._logo_sky.configure(text_color=colors["text"])

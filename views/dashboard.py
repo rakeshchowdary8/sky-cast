@@ -181,21 +181,9 @@ class DashboardView(ctk.CTkFrame):
         )
         self._search_bar.grid(row=0, column=1, sticky="ew", padx=SPACE_8)
 
-        # Right side - theme toggle and favorite buttons using new Button component
+        # Right side - favorite button
         right = ctk.CTkFrame(header, fg_color="transparent")
         right.grid(row=0, column=2, sticky="e")
-
-        # Theme toggle button in header (replaces sidebar theme toggle)
-        theme_icon = "☀️" if self.settings.get("theme", "dark") == "dark" else "🌙"
-        self._theme_btn = Button(
-            right,
-            text=theme_icon,
-            variant="ghost",
-            size="icon",
-            colors=self.colors,
-            command=self.on_toggle_theme,
-        )
-        self._theme_btn.pack(side="right", padx=(SPACE_2, 0))
 
         self._favorite_btn = Button(
             right,
@@ -992,14 +980,58 @@ class DashboardView(ctk.CTkFrame):
         """Show loading state."""
         if self._search_bar:
             self._search_bar.set_enabled(False)
-            self._search_bar.show_loading(True)
 
     def show_error(self, message: str):
         """Show error state."""
         if self._search_bar:
             self._search_bar.set_enabled(True)
-            self._search_bar.show_loading(False)
-        # Could show error in a toast or status area
+        # Show error message as a toast/notification
+        self._show_error_toast(message)
+
+    def _show_error_toast(self, message: str):
+        """Show error message as a temporary toast notification."""
+        # Remove existing toast if any
+        if hasattr(self, '_error_toast') and self._error_toast:
+            self._error_toast.destroy()
+
+        # Create toast frame at top of scrollable area
+        self._error_toast = ctk.CTkFrame(
+            self._scroll,
+            fg_color=self.colors["destructive_light"],
+            corner_radius=8,
+            border_width=1,
+            border_color=self.colors["destructive"],
+        )
+        self._error_toast.pack(fill="x", padx=SPACE_8, pady=(SPACE_4, 0), before=self._hero_frame if hasattr(self, '_hero_frame') and self._hero_frame.winfo_ismapped() else None)
+
+        toast_content = ctk.CTkFrame(self._error_toast, fg_color="transparent")
+        toast_content.pack(fill="x", padx=SPACE_4, pady=SPACE_3)
+
+        ctk.CTkLabel(
+            toast_content,
+            text=f"⚠️  {message}",
+            font=FONT_BODY,
+            text_color=self.colors["destructive"],
+        ).pack(side="left")
+
+        # Close button
+        Button(
+            toast_content,
+            text="✕",
+            variant="ghost",
+            size="icon",
+            colors=self.colors,
+            command=self._hide_error_toast,
+        ).pack(side="right")
+
+        # Auto-hide after 5 seconds
+        self.after(5000, self._hide_error_toast)
+
+    def _hide_error_toast(self):
+        """Hide the error toast."""
+        if hasattr(self, '_error_toast') and self._error_toast:
+            self._error_toast.destroy()
+            self._error_toast = None
 
     def _on_add_favorite(self):
         """Handle add to favorites click."""
@@ -1018,12 +1050,7 @@ class DashboardView(ctk.CTkFrame):
         if self._search_bar:
             self._search_bar.apply_colors(colors)
 
-        # Update buttons (theme toggle and favorite)
-        if self._theme_btn:
-            self._theme_btn.apply_colors(colors)
-            # Update theme icon
-            theme_icon = "☀️" if self.settings.get("theme", "dark") == "dark" else "🌙"
-            self._theme_btn.configure(text=theme_icon)
+        # Update favorite button
         self._favorite_btn.apply_colors(colors)
 
         # Update hero card

@@ -1,8 +1,8 @@
 # SkyCast – Project Status & Handover Document
 
 > **Last Updated:** 2026-11-12  
-> **Current Phase:** PHASE 13 — shadcn-inspired Component System & Full View Migration Complete ✅  
-> **Overall Status:** 🟢 All Core Features + Premium UI Redesign + shadcn Design System Implemented & Verified Working
+> **Current Phase:** PHASE 15 — Simplified Search & Clean Sidebar Complete ✅  
+> **Overall Status:** 🟢 All Core Features + Premium UI Redesign + shadcn Design System + Simplified Search Implemented & Verified Working
 
 ---
 
@@ -38,12 +38,32 @@
 | 11 | **Premium UI Redesign (SkyCast)** | ✅ Complete |
 | 12 | **shadcn-inspired UI Polish** | ✅ Complete |
 | 13 | **shadcn-inspired Component System & Full View Migration** | ✅ Complete |
+| 14 | **Light Mode Only & Search Dropdown Z-Index Fix** | ✅ Complete |
+| 15 | **Simplified Search & Clean Sidebar** | ✅ Complete |
 
 ---
 
 ## Completed Features
 
 ### Core Features (Phases 1-10)
+
+### Phase 14: Light Mode Only & Search Dropdown Z-Index Fix — **NEW**
+- [x] **Removed Dark Mode**: Application now runs exclusively in light mode (theme hardcoded to "light", no theme toggle in UI)
+- [x] **Search Dropdown Always On Top**: Search autocomplete suggestions dropdown is now positioned as a child of the toplevel window, ensuring it renders above all other UI components regardless of z-index stacking
+- [x] **Simplified Settings View**: Removed theme selection from Settings (only temperature unit, wind unit, and default city remain)
+- [x] **Removed Theme Toggle Button**: Removed theme toggle button from Dashboard header
+- [x] **Updated Default Theme**: Changed DEFAULT_THEME from "dark" to "light" in config/settings.py
+- [x] **Removed DARK Color Palette**: Deleted the entire DARK color dictionary from config/settings.py (only LIGHT palette remains)
+- [x] **Simplified get_colors()**: Function now always returns LIGHT palette regardless of theme parameter
+- [x] **Cleaned up apply_settings()**: Removed theme parameter and theme-related logic from App.apply_settings()
+- [x] **Database Updates**: Theme setting in database is still stored but always set to "light" on save
+
+### Phase 15: Simplified Search & Clean Sidebar — **NEW**
+- [x] **Removed Search Autocomplete**: Search bar no longer shows autocomplete suggestions dropdown
+- [x] **Removed Loading State on Search Button**: Search button no longer shows loading spinner during API calls
+- [x] **Removed Sidebar Active Indicator**: Blue vertical line indicator removed from sidebar navigation items
+- [x] **Simplified SearchBar Component**: Clean search input with search button only
+- [x] **Error Toast Notification**: "City not found" and other errors now display as a toast notification at the top of the dashboard with dismiss button and auto-hide after 5 seconds
 - [x] Project directory structure created
 - [x] Architecture designed and documented
 - [x] Documentation system established (PROJECT_STATUS, TASKS, ARCHITECTURE, DECISIONS, CHANGELOG, DEVELOPMENT_LOG)
@@ -176,14 +196,13 @@
 
 ## Last Completed Task
 
-**Phase 13: shadcn-inspired Component System & Full View Migration** — Built complete design system from scratch:
-- Design token system in `config/settings.py` with DARK/LIGHT palettes, spacing/radius/typography scales, animation presets
-- Animation framework in `utils/animations.py` with easing, sequences, micro-interactions
-- Base component library in `components/base.py` (Card, Button, Input, Badge, Separator, Avatar, Tooltip, Skeleton)
-- Complete rewrite of SearchBar, Sidebar, Forecast Cards using new components
-- Full migration of all 4 views (Dashboard, Favorites, History, Settings) to new shadcn-inspired system
-- Staggered entrance animations throughout
-- Consistent theme switching across all components
+**Phase 15: Simplified Search & Clean Sidebar** — Removed autocomplete, loading states, and sidebar indicator:
+- Removed search autocomplete suggestions dropdown entirely
+- Removed loading spinner from search button during API calls
+- Removed blue vertical active indicator from sidebar navigation
+- Simplified SearchBar to just search entry + search button
+- Added error toast notifications for "City not found" and other errors (auto-hide after 5s, dismissible)
+- Cleaned up sidebar _set_active() to only highlight text/icon colors without indicator animation
 
 ---
 
@@ -193,7 +212,7 @@
 
 ---
 
-## Files Modified in Latest Session (Phase 11 + Fixes + Phase 13)
+## Files Modified in Latest Session (Phase 11 + Fixes + Phase 13 + Phase 14 + Phase 15)
 
 ### Created (Phase 13 - shadcn Component System)
 - `components/base.py` — Complete shadcn-inspired base component library (Card, Button, Input, Badge, Separator, Avatar, Tooltip, Skeleton)
@@ -210,6 +229,18 @@
 - `views/settings.py` — **Complete migration**: Card component, Button component, Card-based sections, focus ring animations, theme consistency
 - `components/detail_card.py` — Fixed METRIC_ACCENTS dict access, apply_colors() for new palette
 - `main.py` — Updated for new DashboardView, Sidebar with theme callback
+
+### Modified (Phase 14 - Light Mode Only)
+- `config/settings.py` — Removed DARK palette, DEFAULT_THEME to "light", simplified get_colors()
+- `main.py` — Hardcoded light theme, removed theme from apply_settings()
+- `views/dashboard.py` — Removed theme toggle button from header
+- `views/settings.py` — Removed theme section, updated save/on_show
+- `components/search_bar.py` — Dropdown as toplevel child, absolute positioning, animation guards
+
+### Modified (Phase 15 - Simplified Search & Clean Sidebar)
+- `components/search_bar.py` — Complete rewrite: removed autocomplete, removed loading states, simplified to search entry + button only
+- `views/dashboard.py` — Added error toast notification system (_show_error_toast, _hide_error_toast)
+- `components/sidebar.py` — Removed active indicator (_indicator), removed _animate_indicator(), simplified _set_active()
 
 ### Documentation
 - `project-docs/PROJECT_STATUS.md` (this file)
@@ -233,5 +264,5 @@
 2. Read this file (`PROJECT_STATUS.md`).
 3. Read `project-docs/TASKS.md` to identify the next task.
 4. Read `project-docs/ARCHITECTURE.md` to understand the full design.
-5. The project is at **Phase 13 — Complete**. All core features + premium UI redesign + shadcn-inspired design system are implemented and verified working.
+5. The project is at **Phase 15 — Complete**. All core features + premium UI redesign + shadcn-inspired design system + simplified search & clean sidebar are implemented and verified working.
 6. After any changes, update all documentation files and report results.

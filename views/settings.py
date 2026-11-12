@@ -74,11 +74,6 @@ class SettingsView(ctk.CTkFrame):
             font=FONT_SMALL, text_color=self.colors["text_dim"],
         ).pack(side="left", padx=(SPACE_3, 0))
 
-        # --- Theme ---
-        self._build_section(scroll, "🎨  Appearance", [
-            self._build_theme_row,
-        ])
-
         # --- Units ---
         self._build_section(scroll, "📏  Units", [
             self._build_temp_unit_row,
@@ -137,36 +132,6 @@ class SettingsView(ctk.CTkFrame):
     # -----------------------------------------------------------------------
     # Row builders
     # -----------------------------------------------------------------------
-
-    def _build_theme_row(self, parent):
-        row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", pady=SPACE_2)
-
-        ctk.CTkLabel(
-            row, text="Theme:",
-            font=FONT_BODY, text_color=self.colors["text"],
-        ).pack(side="left", padx=(0, SPACE_3))
-
-        theme = self._settings.get("theme", "dark")
-        self._theme_var = ctk.StringVar(value="🌙  Dark" if theme == "dark" else "☀️  Light")
-
-        theme_seg = ctk.CTkSegmentedButton(
-            row,
-            values=["☀️  Light", "🌙  Dark"],
-            variable=self._theme_var,
-            font=FONT_SMALL,
-            height=44,
-            selected_color=self.colors["primary"],
-            selected_hover_color=self.colors["primary_hover"],
-            unselected_color=self.colors["input_bg"],
-            unselected_hover_color=self.colors["card_hover"],
-            text_color=self.colors["text"],
-            fg_color=self.colors["input_bg"],
-            corner_radius=RADIUS_MD,
-        )
-        theme_seg.pack(side="left")
-        # Map display values to internal values
-        self._theme_display_map = {"☀️  Light": "light", "🌙  Dark": "dark"}
 
     def _build_temp_unit_row(self, parent):
         row = ctk.CTkFrame(parent, fg_color="transparent")
@@ -271,9 +236,7 @@ class SettingsView(ctk.CTkFrame):
     # -----------------------------------------------------------------------
 
     def _save_settings(self):
-        # Get values from UI (map theme display to internal)
-        theme_display = self._theme_var.get()
-        theme = self._theme_display_map.get(theme_display, theme_display.lower())
+        # Get values from UI
         temp_unit = self._temp_var.get()
         # Extract unit from display (e.g., "°C  Celsius" -> "Celsius")
         if "Celsius" in temp_unit:
@@ -283,11 +246,11 @@ class SettingsView(ctk.CTkFrame):
         wind_unit = self._wind_var.get()
         default_city = self._default_city_entry.get().strip()
 
-        # Persist to DB
+        # Persist to DB - always use light theme
         success = database.update_settings(
             temperature_unit=temp_unit,
             wind_unit=wind_unit,
-            theme=theme,
+            theme="light",
             default_city=default_city,
         )
 
@@ -297,7 +260,7 @@ class SettingsView(ctk.CTkFrame):
                 text_color=self.colors["success"],
             )
             # Apply changes immediately in the app
-            self.app.apply_settings(theme=theme, temp_unit=temp_unit, wind_unit=wind_unit)
+            self.app.apply_settings(temp_unit=temp_unit, wind_unit=wind_unit)
         else:
             self._status_label.configure(
                 text="❌  Failed to save settings.",
@@ -315,8 +278,6 @@ class SettingsView(ctk.CTkFrame):
         """Refresh settings from DB when view is activated."""
         self._settings = database.get_settings()
         # Sync UI controls
-        theme = self._settings.get("theme", "dark")
-        self._theme_var.set("🌙  Dark" if theme == "dark" else "☀️  Light")
         self._temp_var.set("°C  Celsius" if self._settings.get("temperature_unit") == "Celsius" else "°F  Fahrenheit")
         self._wind_var.set(self._settings.get("wind_unit", "km/h"))
         city = self._settings.get("default_city", "")

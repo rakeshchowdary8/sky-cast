@@ -258,6 +258,32 @@
 
 ---
 
+## Light Mode Only & Search Dropdown Z-Index Fix (Phase 14)
+
+- [x] **Remove Dark Mode**: Application runs exclusively in light mode
+- [x] **Remove Theme Toggle from Dashboard Header**: Removed theme toggle button from dashboard view
+- [x] **Remove Theme Selection from Settings**: Removed theme segmented button from Settings view
+- [x] **Delete DARK Color Palette**: Removed DARK dictionary from config/settings.py
+- [x] **Update DEFAULT_THEME**: Changed from "dark" to "light" in config/settings.py
+- [x] **Simplify get_colors()**: Always returns LIGHT palette
+- [x] **Update App.apply_settings()**: Removed theme parameter and theme-related logic
+- [x] **Search Dropdown Z-Index Fix**: Dropdown now renders as child of toplevel window
+- [x] **Dropdown Positioning**: Calculated relative to search entry for perfect alignment
+- [x] **Database Theme**: Always saved as "light" in database
+
+---
+
+## Simplified Search & Clean Sidebar (Phase 15)
+
+- [x] **Remove Search Autocomplete**: Search bar no longer shows suggestions dropdown
+- [x] **Remove Loading State on Search Button**: Search button no longer shows loading spinner
+- [x] **Remove Sidebar Active Indicator**: Blue vertical line indicator removed from sidebar
+- [x] **Simplify SearchBar Component**: Clean search entry with search button only
+- [x] **Add Error Toast Notification**: "City not found" errors display as toast with dismiss button and auto-hide (5s)
+- [x] **Update SearchBar in Dashboard**: Removed show_loading calls, updated show_error to use toast
+
+---
+
 ## Deployment
 
 - [x] Verify app runs from a fresh virtual environment

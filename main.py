@@ -83,7 +83,7 @@ class App(ctk.CTk):
 
         # --- Load user settings ---
         self._db_settings = database.get_settings()
-        self._theme = self._db_settings.get("theme", "dark")
+        self._theme = "light"  # Always light mode
         self._temp_unit = self._db_settings.get("temperature_unit", "Celsius")
         self._wind_unit = self._db_settings.get("wind_unit", "km/h")
         self._default_city = self._db_settings.get("default_city", "")
@@ -91,7 +91,7 @@ class App(ctk.CTk):
         # --- Apply theme ---
         ctk.set_appearance_mode(self._theme)
         ctk.set_default_color_theme("blue")
-        self._colors = S.DARK if self._theme == "dark" else S.LIGHT
+        self._colors = S.LIGHT
 
         # --- Window config ---
         self.title(S.WINDOW_TITLE)
@@ -157,7 +157,7 @@ class App(ctk.CTk):
             on_city_search=self.search_city,
             on_refresh=self._on_refresh,
             on_add_favorite=self.add_to_favorites,
-            on_toggle_theme=self._toggle_theme,
+            on_toggle_theme=None,
         )
         self._favorites = FavoritesView(self._content, app=self, colors=self._colors)
         self._history = HistoryView(
@@ -306,37 +306,21 @@ class App(ctk.CTk):
     # Settings application
     # -----------------------------------------------------------------------
 
-    def apply_settings(self, theme: str, temp_unit: str, wind_unit: str):
+    def apply_settings(self, temp_unit: str, wind_unit: str):
         """
         Apply theme and unit changes immediately across all views.
         Called by SettingsView after saving.
         """
-        theme_changed = theme != self._theme
-        self._theme = theme
+        # Theme is always light mode
         self._temp_unit = temp_unit
         self._wind_unit = wind_unit
-        self._colors = S.DARK if theme == "dark" else S.LIGHT
-
-        if theme_changed:
-            ctk.set_appearance_mode(theme)
-            self._apply_colors_all()
+        self._colors = S.LIGHT
 
         # Update units in relevant views
         if hasattr(self._dashboard, 'update_units'):
             self._dashboard.update_units(temp_unit, wind_unit)
         if hasattr(self._history, 'update_units'):
             self._history.update_units(temp_unit)
-
-    def _toggle_theme(self):
-        """Toggle between dark and light themes."""
-        new_theme = "light" if self._theme == "dark" else "dark"
-        self.apply_settings(new_theme, self._temp_unit, self._wind_unit)
-        database.update_settings(
-            temperature_unit=self._temp_unit,
-            wind_unit=self._wind_unit,
-            theme=new_theme,
-            default_city=self._default_city,
-        )
 
     def _apply_colors_all(self):
         """Propagate new color palette to all widgets."""

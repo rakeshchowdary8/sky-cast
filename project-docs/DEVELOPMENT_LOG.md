@@ -5,6 +5,102 @@
 
 ---
 
+## Session 011 — 2026-11-12
+
+**Main Objective:** Remove search autocomplete, loading states, and sidebar active indicator; add error toast notifications
+
+**Work Completed:**
+- **Removed Search Autocomplete** (`components/search_bar.py`):
+  - Complete rewrite of SearchBar to remove autocomplete suggestions dropdown
+  - Removed ThreadPoolExecutor for suggestions, suggestion timer, dropdown frame, suggestion buttons
+  - Removed keyboard navigation (Up/Down/Tab/Escape) for suggestions
+  - Removed `_fetch_suggestions`, `_bg_get_suggestions`, `_show_suggestions`, `_animate_dropdown_entrance`, `_create_suggestion_button`, `_select_suggestion`, `_select_and_search`, `_hide_suggestions`
+  - Simplified to just search entry + search button with hover/focus animations
+- **Removed Loading State on Search Button** (`components/search_bar.py`):
+  - Removed `_show_loading`, `show_loading` methods
+  - Removed `_is_searching` flag
+  - Search button no longer shows loading spinner
+- **Updated Dashboard Error Handling** (`views/dashboard.py`):
+  - Removed `show_loading` calls from `show_loading` method
+  - Added `_show_error_toast()` method to display errors as toast notifications
+  - Added `_hide_error_toast()` method with auto-hide after 5 seconds
+  - Toast includes dismiss button (✕) and error message with warning icon
+- **Removed Sidebar Active Indicator** (`components/sidebar.py`):
+  - Removed `_indicator` attribute and creation in `_build()`
+  - Removed `_animate_indicator()` method
+  - Simplified `_set_active()` to only update text/icon colors and button background
+  - Removed indicator reference from `apply_colors()`
+- **Documentation Updates**:
+  - `PROJECT_STATUS.md`: Added Phase 15 tracker, completed features, last completed task, files modified
+  - `TASKS.md`: Added Phase 15 task list
+  - `CHANGELOG.md`: Added Phase 15 changes under [Unreleased]
+
+**Files Modified:**
+- `components/search_bar.py` — Complete rewrite: removed autocomplete, removed loading states, simplified to search entry + button only
+- `views/dashboard.py` — Added error toast notification system (_show_error_toast, _hide_error_toast)
+- `components/sidebar.py` — Removed active indicator (_indicator), removed _animate_indicator(), simplified _set_active()
+- `project-docs/PROJECT_STATUS.md` — Phase 15 documentation
+- `project-docs/TASKS.md` — Phase 15 tasks
+- `project-docs/CHANGELOG.md` — Phase 15 changes
+- `project-docs/DEVELOPMENT_LOG.md` — This entry
+
+**Verification:**
+- Application starts successfully
+- Search bar works without autocomplete dropdown
+- No loading spinner on search button
+- Sidebar shows active item with color highlight only (no blue vertical line)
+- "City not found" errors display as dismissible toast notification
+- Toast auto-hides after 5 seconds
+
+---
+
+## Session 010 — 2026-11-12
+
+**Main Objective:** Remove dark mode (light mode only) and fix search dropdown z-index to render above all components
+
+**Work Completed:**
+- **Removed Dark Mode**:
+  - Changed DEFAULT_THEME from "dark" to "light" in `config/settings.py`
+  - Deleted entire DARK color palette dictionary from `config/settings.py` (only LIGHT remains)
+  - Simplified `get_colors()` to always return LIGHT palette
+  - Updated `App.__init__()` in `main.py` to hardcode theme to "light"
+  - Removed theme parameter from `App.apply_settings()` and all theme-related logic
+  - Removed theme toggle button from Dashboard header (`views/dashboard.py`)
+  - Removed theme selection (segmented button) from Settings view (`views/settings.py`)
+  - Updated Settings view `_save_settings()` to always save theme as "light"
+  - Updated Settings view `on_show()` to not sync theme UI
+- **Search Dropdown Z-Index Fix** (`components/search_bar.py`):
+  - Added reference to toplevel window in `__init__`
+  - Modified `_show_suggestions()` to create dropdown as child of toplevel (not SearchBar)
+  - Calculate absolute screen position of search entry, convert to toplevel-relative coordinates
+  - Dropdown now renders at highest z-index using `lift()` and `tkraise()`
+  - Added `winfo_exists()` and None checks in animation to prevent AttributeError
+- **Documentation Updates**:
+  - `PROJECT_STATUS.md`: Added Phase 14 tracker, completed features, last completed task
+  - `TASKS.md`: Added Phase 14 task list
+  - `CHANGELOG.md`: Added Phase 14 changes under [Unreleased]
+
+**Files Modified:**
+- `config/settings.py` — Removed DARK palette, DEFAULT_THEME to "light", simplified get_colors()
+- `main.py` — Hardcoded light theme, removed theme from apply_settings()
+- `views/dashboard.py` — Removed theme toggle button from header
+- `views/settings.py` — Removed theme section, updated save/on_show
+- `components/search_bar.py` — Dropdown as toplevel child, absolute positioning, animation guards
+- `project-docs/PROJECT_STATUS.md` — Phase 14 documentation
+- `project-docs/TASKS.md` — Phase 14 tasks
+- `project-docs/CHANGELOG.md` — Phase 14 changes
+- `project-docs/DEVELOPMENT_LOG.md` — This entry
+
+**Verification:**
+- Application starts successfully in light mode only
+- Weather data displays correctly with light theme colors
+- Search autocomplete dropdown renders above all other components
+- Settings view only shows temperature unit, wind unit, and default city
+- No theme toggle available in UI
+- Database theme setting saved as "light"
+
+---
+
 ## Session 009 — 2026-11-12
 
 **Main Objective:** Fix section heading grouping in Dashboard UI — wrap all section headers with their content containers for proper visual grouping

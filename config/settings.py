@@ -48,7 +48,7 @@ FORECAST_DAYS = 7
 # ---------------------------------------------------------------------------
 DEFAULT_TEMP_UNIT = "Celsius"
 DEFAULT_WIND_UNIT = "km/h"
-DEFAULT_THEME = "dark"
+DEFAULT_THEME = "light"
 DEFAULT_CITY = ""
 
 # ---------------------------------------------------------------------------
@@ -157,127 +157,6 @@ Z_INDEX_MODAL = 300
 Z_INDEX_POPOVER = 400
 Z_INDEX_TOAST = 500
 
-# ---------------------------------------------------------------------------
-# Color Palette — Dark Theme (shadcn-inspired slate + brand)
-# ---------------------------------------------------------------------------
-DARK = {
-    # Base backgrounds
-    "bg":            "#030712",      # slate-950
-    "bg_secondary":  "#0f172a",      # slate-900
-    "bg_tertiary":   "#1e293b",      # slate-800
-
-    # Surface / Card backgrounds
-    "card":          "#0f172a",      # slate-900
-    "card_hover":    "#1e293b",      # slate-800
-    "card_border":   "#1e293b",      # slate-800
-    "card_border_hover": "#334155",  # slate-700
-
-    # Sidebar
-    "sidebar":       "#030712",      # slate-950
-    "sidebar_border": "#1e293b",     # slate-800
-
-    # Brand / Accent (Blue primary)
-    "primary":       "#3b82f6",      # blue-500
-    "primary_hover": "#2563eb",      # blue-600
-    "primary_light": "#1e3a5f",      # blue-900/30
-    "primary_foreground": "#ffffff",
-
-    # Secondary accent (Cyan)
-    "secondary":     "#06b6d4",      # cyan-500
-    "secondary_hover": "#0891b2",    # cyan-600
-    "secondary_light": "#0e4d5e",    # cyan-900/30
-    "secondary_foreground": "#ffffff",
-
-    # Tertiary accent (Purple)
-    "tertiary":      "#a855f7",      # purple-500
-    "tertiary_hover": "#9333ea",     # purple-600
-    "tertiary_light": "#4c1d95",     # purple-900/30
-
-    # Semantic colors
-    "success":       "#10b981",      # emerald-500
-    "success_hover": "#059669",      # emerald-600
-    "success_light": "#064e3b",      # emerald-900/30
-    "success_foreground": "#ffffff",
-
-    "warning":       "#f59e0b",      # amber-500
-    "warning_hover": "#d97706",      # amber-600
-    "warning_light": "#78350f",      # amber-900/30
-    "warning_foreground": "#000000",
-
-    "destructive":   "#ef4444",      # red-500
-    "destructive_hover": "#dc2626",  # red-600
-    "destructive_light": "#7f1d1d",  # red-900/30
-    "destructive_foreground": "#ffffff",
-
-    # Text
-    "text":          "#f8fafc",      # slate-50
-    "text_secondary": "#94a3b8",     # slate-400
-    "text_muted":    "#64748b",      # slate-500
-    "text_dim":      "#475569",      # slate-600
-    "text_on_primary": "#ffffff",
-    "text_on_destructive": "#ffffff",
-
-    # Inputs
-    "input_bg":      "#030712",      # slate-950
-    "input_border":  "#1e293b",      # slate-800
-    "input_border_hover": "#334155", # slate-700
-    "input_focus":   "#3b82f6",      # blue-500
-    "input_placeholder": "#475569",  # slate-600
-
-    # Buttons
-    "btn_primary_bg": "#3b82f6",
-    "btn_primary_hover": "#2563eb",
-    "btn_primary_text": "#ffffff",
-
-    "btn_secondary_bg": "#1e293b",
-    "btn_secondary_hover": "#334155",
-    "btn_secondary_text": "#f8fafc",
-    "btn_secondary_border": "#1e293b",
-
-    "btn_outline_bg": "transparent",
-    "btn_outline_hover": "#1e293b",
-    "btn_outline_text": "#f8fafc",
-    "btn_outline_border": "#334155",
-
-    "btn_ghost_bg": "transparent",
-    "btn_ghost_hover": "#1e293b",
-    "btn_ghost_text": "#f8fafc",
-
-    "btn_destructive_bg": "#ef4444",
-    "btn_destructive_hover": "#dc2626",
-    "btn_destructive_text": "#ffffff",
-
-    # Badge / Tag
-    "badge_bg": "#1e293b",
-    "badge_text": "#94a3b8",
-    "badge_hover_bg": "#334155",
-    "badge_hover_text": "#f8fafc",
-
-    # Charts
-    "chart_bg": "#030712",
-    "chart_grid": "#1e293b",
-    "chart_line": "#60a5fa",
-    "chart_line_secondary": "#22d3ee",
-    "chart_fill": "#1e3a5f",
-    "chart_fill_secondary": "#0e4d5e",
-    "chart_text": "#94a3b8",
-
-    # Scrollbar - more visible with better contrast
-    "scrollbar": "#334155",      # slate-700 (was slate-800)
-    "scrollbar_hover": "#475569", # slate-600 (was slate-700)
-    "scrollbar_thumb": "#475569", # slate-600
-
-    # Divider
-    "divider": "#1e293b",
-
-    # Focus ring
-    "focus_ring": "#3b82f6",
-    "focus_ring_offset": "#030712",
-
-    # Overlay / Modal
-    "overlay_bg": "#000000",
-    "overlay_opacity": 0.5,
-}
 
 # ---------------------------------------------------------------------------
 # Color Palette — Light Theme (shadcn-inspired)
@@ -519,9 +398,9 @@ WEATHER_ICONS = {
 # Helper functions
 # ---------------------------------------------------------------------------
 
-def get_colors(theme: str = "dark") -> dict:
-    """Get color palette for theme."""
-    return DARK if theme == "dark" else LIGHT
+def get_colors(theme: str = "light") -> dict:
+    """Get color palette for theme (always light)."""
+    return LIGHT
 
 
 def get_button_config(variant: str = "default", size: str = "default", colors: dict = None) -> dict:
