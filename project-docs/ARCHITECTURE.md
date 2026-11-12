@@ -1,27 +1,27 @@
-# SkyView – Application Architecture
+# SkyCast – Application Architecture
 
 > **Last Updated:** 2026-11-12  
-> **Version:** 1.0 (Initial Design)
+> **Version:** 2.0 (Premium UI Redesign)
 
 ---
 
 ## Overview
 
-SkyView is a **native Python desktop application** using a layered, modular architecture. The design separates:
+SkyCast (formerly SkyView) is a **premium native Python desktop weather application** using a layered, modular architecture. The design separates:
 
 1. **Presentation Layer** — Tkinter/CustomTkinter UI (views, components)
 2. **Service Layer** — Weather API and geocoding logic
 3. **Data Layer** — SQLite database operations
 4. **Model Layer** — Python dataclasses representing domain objects
 5. **Utility Layer** — Shared helpers, validators, icon mapping
-6. **Configuration** — App-wide constants and settings
+6. **Configuration** — App-wide constants and settings (premium design system)
 
 ---
 
 ## Project Folder Structure
 
 ```
-SkyView/
+SkyCast/
 │
 ├── main.py                    # Entry point. Creates App, starts Tkinter mainloop.
 ├── requirements.txt           # Python dependencies
@@ -30,7 +30,7 @@ SkyView/
 ├── .gitignore
 │
 ├── config/
-│   └── settings.py            # App constants: colors, fonts, default values, paths
+│   └── settings.py            # App constants: colors, fonts, default values, paths, design tokens
 │
 ├── database/
 │   ├── __init__.py
@@ -46,27 +46,29 @@ SkyView/
 │
 ├── models/
 │   ├── __init__.py
-│   └── weather.py             # Dataclasses: WeatherData, HourlyForecast, DailyForecast
+│   └── weather.py             # Dataclasses: WeatherData, CurrentWeather, HourlyForecast, DailyForecast
 │
 ├── components/
 │   ├── __init__.py
-│   ├── sidebar.py             # Left navigation sidebar (CTkFrame with buttons)
-│   ├── header.py              # Top header bar with logo, search, theme toggle
-│   ├── search_bar.py          # Search input + button widget
-│   ├── weather_card.py        # Reusable info card (humidity, wind, pressure, etc.)
-│   └── forecast_card.py       # Reusable hourly/daily forecast card widget
+│   ├── base.py                # shadcn-inspired base components (Card, Button, Input, Badge, Separator, Avatar, Tooltip, Skeleton)
+│   ├── sidebar.py             # Left navigation sidebar (animated indicator, SkyCast branding, collapsible)
+│   ├── search_bar.py          # Premium search input with autocomplete dropdown
+│   ├── weather_card.py        # Premium info card (accent colors, hover effects)
+│   ├── forecast_card.py       # Premium hourly/daily forecast card widgets
+│   └── detail_card.py         # Premium 6-metric detail cards for dashboard
 │
 ├── views/
 │   ├── __init__.py
-│   ├── dashboard.py           # Main dashboard view (weather display + charts)
-│   ├── favorites.py           # Favorite cities view
-│   ├── history.py             # Search history + weather history view
-│   └── settings.py            # Settings view (theme, units, default city)
+│   ├── dashboard.py           # Premium dashboard (hero, detail cards, hourly, daily, sun/atmos, chart)
+│   ├── favorites.py           # Favorite cities view (modern cards)
+│   ├── history.py             # Search history + weather history view (tabbed)
+│   └── settings.py            # Settings view (modern segmented buttons)
 │
 ├── utils/
 │   ├── __init__.py
+│   ├── animations.py          # Animation framework (Animation, AnimationSequence, easing, micro-interactions)
 │   ├── helpers.py             # Format temp, wind, date/time, unit conversion
-│   ├── weather_icons.py       # WMO weather code → description + emoji/icon mapping
+│   ├── weather_icons.py       # WMO weather code → description + emoji mapping
 │   └── validators.py          # Input validation (city name, etc.)
 │
 ├── assets/
@@ -92,11 +94,11 @@ SkyView/
 ```
 main.py
   └── creates App instance (inherits CTk)
-        ├── Loads config/settings.py (colors, fonts, DB path)
+        ├── Loads config/settings.py (colors, fonts, DB path, design tokens)
         ├── Calls database.initialize_database() → creates data/skyview.db if absent
         ├── Loads user_settings from DB (theme, units, default city)
         ├── Applies theme via customtkinter.set_appearance_mode()
-        ├── Creates Sidebar (left panel)
+        ├── Creates Sidebar (left panel, 260px)
         ├── Creates content frame (right panel)
         ├── Creates all Views: Dashboard, Favorites, History, Settings
         │     (all views are CTkFrame children of content frame)
@@ -121,12 +123,12 @@ Sidebar button click
 ## Weather Search Flow
 
 ```
-User types city + clicks Search
-  → header/search_bar.py triggers App.search_city(city_name)
+User types city + clicks Search (or selects autocomplete suggestion)
+  → SearchBar triggers App.search_city(city_name)
       → Input validated (validators.py)
-      → Loading indicator shown
+      → Loading indicator shown (search button → "⏳")
       → ThreadPoolExecutor submits weather_service.fetch_weather(city_name)
-           → geocoding.py: GET geocoding API → returns (lat, lon, country)
+           → geocoding.py: GET geocoding API → returns (city, country, lat, lon)
            → weather_api.py: GET forecast API → returns raw JSON
            → Parses JSON into WeatherData dataclass (models/weather.py)
       → Thread completes → root.after(0, callback) fires on main thread
@@ -151,6 +153,17 @@ GET https://geocoding-api.open-meteo.com/v1/search
 Response → results[0] → { name, country, latitude, longitude }
 ```
 
+### Autocomplete Suggestions (partial city name → suggestions)
+```
+GET https://geocoding-api.open-meteo.com/v1/search
+    ?name={partial}
+    &count=8
+    &language=en
+    &format=json
+
+Response → results[] → [{ city, country, admin1, latitude, longitude }]
+```
+
 ### Forecast (coordinates → weather)
 ```
 GET https://api.open-meteo.com/v1/forecast
@@ -158,10 +171,10 @@ GET https://api.open-meteo.com/v1/forecast
     &longitude={lon}
     &current=temperature_2m,apparent_temperature,relative_humidity_2m,
               wind_speed_10m,wind_direction_10m,surface_pressure,
-              visibility,weather_code,is_day
-    &hourly=temperature_2m,weather_code,precipitation_probability
+              visibility,weather_code,is_day,cloud_cover
+    &hourly=temperature_2m,weather_code,precipitation_probability,cloud_cover
     &daily=temperature_2m_max,temperature_2m_min,weather_code,
-           sunrise,sunset,uv_index_max,precipitation_sum
+           sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max
     &wind_speed_unit=kmh
     &temperature_unit=celsius
     &timezone=auto
@@ -217,11 +230,20 @@ database/database.py
 ### `App` (main.py)
 - Root application class, inherits `customtkinter.CTk`
 - Owns: sidebar, all views, executor, database reference
-- Methods: `search_city()`, `show_view()`, `apply_theme()`, `on_close()`
+- Methods: `search_city()`, `show_view()`, `apply_settings()`, `on_close()`
 
 ### `WeatherData` (models/weather.py)
 - Dataclass holding all current + forecast weather data
-- Fields: `city`, `country`, `lat`, `lon`, `temperature`, `feels_like`, `humidity`, `wind_speed`, `wind_direction`, `pressure`, `visibility`, `weather_code`, `is_day`, `hourly: list[HourlyForecast]`, `daily: list[DailyForecast]`
+- Fields: `city`, `country`, `lat`, `lon`, `current: CurrentWeather`, `hourly: list[HourlyForecast]`, `daily: list[DailyForecast]`
+
+### `CurrentWeather` (models/weather.py)
+- Dataclass for current conditions
+- Fields: `temperature`, `feels_like`, `humidity`, `wind_speed`, `wind_direction`, `pressure`, `visibility`, `weather_code`, `is_day`, `cloud_cover`
+
+### `HourlyForecast` / `DailyForecast` (models/weather.py)
+- Dataclasses with datetime objects for time fields
+- Hourly: `time`, `temperature`, `weather_code`, `precip_probability`, `cloud_cover`
+- Daily: `date`, `temp_max`, `temp_min`, `weather_code`, `sunrise`, `sunset`, `uv_index_max`, `precip_sum`, `precipitation_probability_max`
 
 ### `WeatherService` (services/weather_service.py)
 - `fetch_weather(city_name: str) → WeatherData`
@@ -257,29 +279,166 @@ main.py
 
 ---
 
-## Color Palette & Theme
+## Premium Design System (Phase 11)
 
-### Dark Theme (default)
-| Role | Color |
-|------|-------|
-| Background | `#1a1a2e` |
-| Sidebar | `#16213e` |
-| Card background | `#0f3460` |
-| Accent / Primary | `#e94560` |
-| Text primary | `#ffffff` |
-| Text secondary | `#a0a0b0` |
-| Success | `#00d4aa` |
-| Warning | `#f5a623` |
+### Color Palette — Dark Theme (SkyCast Premium)
+| Role | Color | Usage |
+|------|-------|-------|
+| Background | `#0a0e17` | Main window background |
+| Background Elevated | `#111827` | Elevated surfaces |
+| Sidebar | `#0d121c` | Sidebar background |
+| Card | `#141c2e` | Card backgrounds |
+| Card Hover | `#1a2540` | Card hover state |
+| Card Border | `#1e2a4a` | Card borders |
+| Accent (Primary) | `#3b82f6` | Primary actions, links |
+| Accent Hover | `#60a5fa` | Primary hover |
+| Accent Soft | `#1e3a5f` | Selected/active backgrounds |
+| Accent Cyan | `#06b6d4` | Visibility, info |
+| Accent Purple | `#a855f7` | Cloud cover, UV |
+| Accent Green | `#10b981` | Humidity, success |
+| Accent Amber | `#f59e0b` | Pressure, warning |
+| Accent Red | `#ef4444` | Wind, error |
+| Accent Orange | `#f97316` | UV, sunrise |
+| Text Primary | `#f8fafc` | Primary text |
+| Text Secondary | `#94a3b8` | Secondary text |
+| Text Dim | `#64748b` | Dimmed text |
 
-### Light Theme
-| Role | Color |
-|------|-------|
-| Background | `#f0f4f8` |
-| Sidebar | `#ffffff` |
-| Card background | `#ffffff` |
-| Accent / Primary | `#2563eb` |
-| Text primary | `#1a202c` |
-| Text secondary | `#718096` |
+### Color Palette — Light Theme
+| Role | Color | Usage |
+|------|-------|-------|
+| Background | `#f8fafc` | Main window background |
+| Background Elevated | `#ffffff` | Elevated surfaces |
+| Sidebar | `#ffffff` | Sidebar background |
+| Card | `#ffffff` | Card backgrounds |
+| Card Hover | `#f1f5f9` | Card hover state |
+| Card Border | `#e2e8f0` | Card borders |
+| Accent (Primary) | `#2563eb` | Primary actions |
+| Accent Hover | `#1d4ed8` | Primary hover |
+| Accent Soft | `#dbeafe` | Selected/active backgrounds |
+| ... | ... | (full palette in settings.py) |
+
+### Typography
+| Token | Font | Size | Weight | Usage |
+|-------|------|------|--------|-------|
+| FONT_TINY | Inter | 10 | Regular | Small labels |
+| FONT_SMALL | Inter | 12 | Regular | Body small |
+| FONT_BODY | Inter | 13 | Regular | Body text |
+| FONT_LABEL | Inter | 11 | Bold | Labels |
+| FONT_MEDIUM | Inter | 14 | Bold | Sub-headings |
+| FONT_LARGE | Inter | 18 | Bold | Section headers |
+| FONT_TITLE | Inter | 24 | Bold | Page titles |
+| FONT_DISPLAY | Poppins | 20 | Bold | Display text |
+| FONT_HERO | Poppins | 72 | Bold | Hero temperature |
+| FONT_HERO_SM | Poppins | 48 | Bold | Medium hero |
+
+### Spacing Scale
+| Token | Value | Usage |
+|-------|-------|-------|
+| PAD_XS | 4px | Tight spacing |
+| PAD_SM | 8px | Small gaps |
+| PAD_MD | 16px | Medium gaps (standard) |
+| PAD_LG | 24px | Large gaps |
+| PAD_XL | 32px | Section spacing |
+| PAD_2XL | 48px | Major section spacing |
+
+### Border Radius
+| Token | Value | Usage |
+|-------|-------|-------|
+| CARD_CORNER_RADIUS | 16px | Cards, panels |
+| BUTTON_CORNER_RADIUS | 10px | Buttons, inputs |
+| SIDEBAR_BUTTON_HEIGHT | 48px | Sidebar nav items |
+
+### Animation Timings
+| Token | Value | Usage |
+|-------|-------|-------|
+| ANIM_FAST | 150ms | Micro-interactions |
+| ANIM_NORMAL | 250ms | Standard transitions |
+| ANIM_SLOW | 350ms | Complex animations |
+
+### Metric Accent Colors (with Light Variants)
+| Metric | Accent | Light Variant |
+|--------|--------|---------------|
+| Temperature | `#3b82f6` | `#1e3a5f` |
+| Humidity | `#10b981` | `#064e3b` |
+| Wind | `#ef4444` | `#7f1d1d` |
+| Pressure | `#f59e0b` | `#78350f` |
+| Visibility | `#06b6d4` | `#0e4d5e` |
+| UV Index | `#f97316` | `#7c2d12` |
+| Cloud Cover | `#a855f7` | `#4c1d95` |
+
+---
+
+## shadcn-inspired Component System (Phase 13)
+
+### Design Token System (`config/settings.py`)
+
+Complete shadcn-inspired design tokens providing a unified visual language:
+
+| Category | Tokens | Description |
+|----------|--------|-------------|
+| **Color Palettes** | `DARK`, `LIGHT` | Full semantic color dictionaries with 60+ keys |
+| **Spacing** | `SPACE_1`–`SPACE_16` | 16-step scale (4px base unit) |
+| **Border Radius** | `RADIUS_NONE`–`RADIUS_FULL` | 8-step scale (0px → 9999px) |
+| **Typography** | `FONT_SIZE_XS`–`FONT_SIZE_9XL` | 12-step scale with Inter/Poppins families |
+| **Animation** | `ANIM_INSTANT`–`ANIM_SLOWER` | 6 durations with easing presets |
+| **Metric Accents** | `METRIC_ACCENTS` | Per-metric colors with main/light/text variants |
+| **Status Colors** | `STATUS_COLORS` | Weather condition colors with light variants |
+| **Weather Icons** | `WEATHER_ICONS` | WMO code → emoji mapping (43 codes) |
+
+**Helper Functions:** `get_colors()`, `get_button_config()`, `get_input_config()`, `hex_to_rgb()`, `lerp_color()`, easing functions (`ease_out_cubic`, `ease_in_out_cubic`, `ease_out_expo`)
+
+### Animation Framework (`utils/animations.py`)
+
+| Class/Function | Purpose |
+|----------------|---------|
+| `Animation` | Base class for property interpolation (color, numeric, tuple) with easing |
+| `AnimationSequence` | Run animations in parallel or sequence with delays |
+| `fade_in` / `fade_out` | Opacity-like transitions via color interpolation |
+| `slide_in_from_left` | Position animations |
+| `scale_in` | Scale animations |
+| `animate_sidebar_toggle` | Specialized sidebar width animation with cubic easing |
+| `animate_color_transition` | Smooth color property transitions |
+| `pulse_animation` | Pulsing between two colors |
+| `setup_hover_animation` | Reusable hover enter/leave animations |
+| `setup_focus_ring` | Focus ring animations for inputs |
+| `animate_button_press` | Button press scale/color feedback |
+| `stagger_animate_children` | Staggered animations for lists |
+
+### Base Component Library (`components/base.py`)
+
+| Component | Variants | Sizes | Key Features |
+|-----------|----------|-------|--------------|
+| `Card` | default, outlined, elevated, ghost | — | Hover animations, padding configurable |
+| `Button` | default, secondary, outline, ghost, destructive | sm, default, lg, xl, icon | Hover/focus/press animations, loading state |
+| `Input` | — | sm, default, lg | Label, error state, left/right icons, focus ring |
+| `Badge` | default, secondary, outline, destructive, success, warning | sm, default, lg | Semantic color variants |
+| `Separator` | horizontal, vertical | — | Divider lines |
+| `Avatar` | — | sm, default, lg, xl, 2xl | Text fallback with initials |
+| `Tooltip` | — | — | Hover tooltip with delay |
+| `Skeleton` | — | — | Shimmer loading animation |
+
+**Factory Functions:** `create_card()`, `create_button()`, `create_input()`, `create_badge()`, `create_separator()`, `create_avatar()`, `create_skeleton()`
+
+### Component Migration Strategy
+
+All existing custom components migrated to use base components:
+
+| Original Component | New Base Component Usage |
+|-------------------|-------------------------|
+| Custom card frames | `Card` (default/outlined/elevated/ghost) |
+| Custom CTkButton | `Button` (variants + sizes) |
+| Custom CTkEntry | `Input` (with label, error, icons) |
+| Custom status badges | `Badge` (6 variants) |
+| Custom dividers | `Separator` |
+
+### Staggered Entrance Animations
+
+All list-based views use `stagger_animate_children` for polished entrances:
+
+- **Sidebar nav items**: Slide from left with 60ms delay per item
+- **Dashboard sections**: Sequential fade+slide with 60ms delay
+- **Hourly/Daily forecast cards**: Fade+slide-up with 40-50ms delay
+- **Favorites/History cards**: Fade+slide-up with 30-50ms delay
 
 ---
 
@@ -296,5 +455,4 @@ main.py
 | 95 | Thunderstorm | ⛈️ |
 | 96, 99 | Hail storm | 🌩️ |
 
-Full mapping in `utils/weather_icons.py`.
-
+Full mapping in `utils/weather_icons.py` (43 codes).

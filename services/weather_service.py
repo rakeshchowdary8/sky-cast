@@ -58,7 +58,7 @@ def fetch_weather(city_name: str) -> WeatherData:
         raise WeatherServiceError(str(e))
 
     logger.info("Weather fetched: %s, %.1f°C, code=%d",
-                weather.city, weather.temperature, weather.weather_code)
+                weather.city, weather.current.temperature, weather.current.weather_code)
 
     return weather
 

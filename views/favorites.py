@@ -1,12 +1,23 @@
 """
-views/favorites.py — Modern favorite cities management view.
+views/favorites.py — Premium favorite cities management view (shadcn-inspired).
+
+Features:
+- Clean card-based list with hover animations
+- View and remove actions
+- Empty state with call-to-action
+- Staggered entrance animations
 """
 
 import customtkinter as ctk
 from config.settings import (
-    FONT_TITLE, FONT_MEDIUM, FONT_BODY, FONT_SMALL,
-    PAD_LG, PAD_MD, PAD_SM, CARD_CORNER_RADIUS,
+    FONT_TITLE, FONT_MEDIUM, FONT_BODY, FONT_SMALL, FONT_LABEL, FONT_TINY,
+    SPACE_1, SPACE_2, SPACE_3, SPACE_4, SPACE_6, SPACE_8,
+    CARD_CORNER_RADIUS, BUTTON_CORNER_RADIUS, RADIUS_MD,
+    STATUS_COLORS,
+    ANIM_FAST,
 )
+from components.base import Card, Button, Badge
+from utils.animations import stagger_animate_children, animate_color_transition, ease_out_cubic
 from database import database
 
 
@@ -24,12 +35,13 @@ class FavoritesView(ctk.CTkFrame):
         super().__init__(parent, fg_color=colors["bg"], corner_radius=0, **kwargs)
         self.app = app
         self.colors = colors
+        self._favorite_cards = []
         self._build()
 
     def _build(self):
         # Header with icon
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=PAD_LG, pady=(PAD_LG, PAD_SM))
+        header.pack(fill="x", padx=SPACE_8, pady=(SPACE_6, SPACE_3))
 
         ctk.CTkLabel(
             header, text="⭐  Favorite Cities",
@@ -39,13 +51,13 @@ class FavoritesView(ctk.CTkFrame):
         ctk.CTkLabel(
             header, text="Your saved locations",
             font=FONT_SMALL, text_color=self.colors["text_dim"],
-        ).pack(side="left", padx=(PAD_MD, 0))
+        ).pack(side="left", padx=(SPACE_3, 0))
 
         # Scrollable list
         self._list_frame = ctk.CTkScrollableFrame(
             self, fg_color="transparent", corner_radius=0
         )
-        self._list_frame.pack(fill="both", expand=True, padx=PAD_LG, pady=PAD_SM)
+        self._list_frame.pack(fill="both", expand=True, padx=SPACE_8, pady=SPACE_2)
 
         self._refresh_list()
 
@@ -54,6 +66,7 @@ class FavoritesView(ctk.CTkFrame):
         for widget in self._list_frame.winfo_children():
             widget.destroy()
 
+        self._favorite_cards = []
         favorites = database.get_favorite_cities()
 
         if not favorites:
@@ -63,60 +76,78 @@ class FavoritesView(ctk.CTkFrame):
         for fav in favorites:
             self._build_favorite_card(fav)
 
-    def _build_empty_state(self):
-        """Show empty state illustration."""
-        empty_frame = ctk.CTkFrame(
-            self._list_frame, fg_color=self.colors["card"],
-            corner_radius=CARD_CORNER_RADIUS, border_width=1,
-            border_color=self.colors["border"],
+        # Stagger animate the cards
+        stagger_animate_children(
+            self._list_frame,
+            lambda child, idx: None,  # Cards animate themselves
+            delay_per_child=50,
+            start_delay=50,
         )
-        empty_frame.pack(fill="x", pady=PAD_LG * 2)
+
+    def _build_empty_state(self):
+        """Show empty state illustration using Card component."""
+        empty_frame = Card(
+            self._list_frame,
+            variant="default",
+            padding=SPACE_8,
+            colors=self.colors,
+        )
+        empty_frame.pack(fill="x", pady=SPACE_8 * 2)
+
+        empty_content = empty_frame.content
 
         ctk.CTkLabel(
-            empty_frame, text="🌍",
+            empty_content, text="🌍",
             font=("Segoe UI Emoji", 48),
-        ).pack(pady=(PAD_LG * 2, PAD_MD))
+        ).pack(pady=(SPACE_6, SPACE_4))
 
         ctk.CTkLabel(
-            empty_frame, text="No favorites yet",
+            empty_content, text="No favorites yet",
             font=FONT_MEDIUM, text_color=self.colors["text"],
         ).pack()
 
         ctk.CTkLabel(
-            empty_frame,
+            empty_content,
             text="Search for a city and click 'Add to Favorites'\nto save it for quick access.",
             font=FONT_BODY, text_color=self.colors["text_dim"],
             justify="center",
-        ).pack(pady=(PAD_SM, PAD_LG * 2))
+        ).pack(pady=(SPACE_2, SPACE_6))
 
     def _build_favorite_card(self, fav: dict):
-        """Build a modern card for a favorite city."""
-        card = ctk.CTkFrame(
+        """Build a modern card for a favorite city using Card component."""
+        card = Card(
             self._list_frame,
-            fg_color=self.colors["card"],
-            corner_radius=CARD_CORNER_RADIUS,
-            border_width=1,
-            border_color=self.colors["border"],
+            variant="default",
+            padding=SPACE_4,
+            colors=self.colors,
         )
-        card.pack(fill="x", pady=PAD_SM // 2)
+        card.pack(fill="x", pady=SPACE_1)
+        card.configure(cursor="hand2")
 
-        # Hover effect
-        default_fg = self.colors["card"]
-        hover_fg = self.colors["card_hover"]
-        default_border = self.colors["border"]
-        hover_border = self.colors["accent"]
+        # Store default colors for hover
+        card._default_fg = self.colors["card"]
+        card._default_border = self.colors["card_border"]
+        card._hover_fg = self.colors["card_hover"]
+        card._hover_border = self.colors["primary"]
 
+        # Hover effect with smooth animation
         def on_enter(_):
-            card.configure(fg_color=hover_fg, border_color=hover_border)
+            animate_color_transition(card, "fg_color",
+                                      card.cget("fg_color"), self.colors["card_hover"], ANIM_FAST)
+            animate_color_transition(card, "border_color",
+                                      card.cget("border_color"), self.colors["primary"], ANIM_FAST)
+
         def on_leave(_):
-            card.configure(fg_color=default_fg, border_color=default_border)
+            animate_color_transition(card, "fg_color",
+                                      card.cget("fg_color"), self.colors["card"], ANIM_FAST)
+            animate_color_transition(card, "border_color",
+                                      card.cget("border_color"), self.colors["card_border"], ANIM_FAST)
 
         card.bind("<Enter>", on_enter)
         card.bind("<Leave>", on_leave)
 
         # Main content
-        content = ctk.CTkFrame(card, fg_color="transparent")
-        content.pack(fill="x", padx=PAD_MD, pady=PAD_MD)
+        content = card.content
 
         # Left: City info
         info = ctk.CTkFrame(content, fg_color="transparent")
@@ -134,41 +165,40 @@ class FavoritesView(ctk.CTkFrame):
             font=FONT_SMALL, text_color=self.colors["text_dim"],
         ).pack(anchor="w")
 
-        # Right: Action buttons
+        # Right: Action buttons using Button component
         btn_frame = ctk.CTkFrame(content, fg_color="transparent")
-        btn_frame.pack(side="right", padx=PAD_SM)
+        btn_frame.pack(side="right", padx=SPACE_2)
 
-        view_btn = ctk.CTkButton(
+        view_btn = Button(
             btn_frame, text="🌤️  View",
-            font=FONT_SMALL,
-            width=90, height=34,
-            fg_color=self.colors["accent"],
-            hover_color=self.colors.get("accent_hover", self.colors["accent"]),
-            text_color="#ffffff",
-            corner_radius=8,
+            variant="default",
+            size="sm",
+            colors=self.colors,
             command=lambda f=fav: self._load_favorite(f),
         )
-        view_btn.pack(side="left", padx=PAD_SM // 2)
+        view_btn.pack(side="left", padx=SPACE_1)
 
         # Bind hover to card too
         view_btn.bind("<Enter>", on_enter)
         view_btn.bind("<Leave>", on_leave)
 
-        remove_btn = ctk.CTkButton(
+        remove_btn = Button(
             btn_frame, text="🗑️  Remove",
-            font=FONT_SMALL,
-            width=100, height=34,
-            fg_color="transparent",
-            hover_color="#c0392b",
-            text_color=self.colors["warning"],
-            border_width=1,
-            border_color=self.colors["warning"],
-            corner_radius=8,
+            variant="ghost",
+            size="sm",
+            colors=self.colors,
             command=lambda f=fav: self._remove_favorite(f),
+        )
+        # Override colors for destructive action
+        remove_btn.configure(
+            text_color=self.colors["destructive"],
+            hover_color=self.colors["destructive_light"],
         )
         remove_btn.pack(side="left")
         remove_btn.bind("<Enter>", on_enter)
         remove_btn.bind("<Leave>", on_leave)
+
+        self._favorite_cards.append(card)
 
     def _load_favorite(self, fav: dict):
         """Load weather for a favorite city."""

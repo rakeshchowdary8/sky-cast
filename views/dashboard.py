@@ -1,419 +1,989 @@
 """
-views/dashboard.py — Main dashboard view.
+views/dashboard.py — Premium SkyCast main dashboard view (shadcn-inspired).
 
-Shows current weather, info cards, hourly/daily forecasts, and Matplotlib chart.
-All data display is driven by WeatherData objects passed from App.
+Layout:
+- Header: Location, date, search bar, refresh/favorite buttons
+- Hero: Large temperature, condition, large weather illustration
+- Detail Cards: 6 metric cards (humidity, wind, pressure, visibility, UV, cloud)
+- Hourly Forecast: Horizontal scrollable strip with current hour highlight
+- Daily Forecast: 5-day forecast cards
+- Sunrise/Sunset & Atmospheric Conditions
+- Weather Alerts (if any)
+- Temperature Chart (24h) with gradient fill
 """
 
 import customtkinter as ctk
-import matplotlib
-matplotlib.use("Agg")  # Non-interactive backend for embedding in Tkinter
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.ticker as ticker
-
 from config.settings import (
-    FONT_HERO, FONT_TITLE, FONT_LARGE, FONT_MEDIUM, FONT_BODY,
-    FONT_SMALL, FONT_LABEL, PAD_MD, PAD_SM, PAD_LG, PAD_XL,
-    CARD_CORNER_RADIUS,
+    FONT_BODY, FONT_LABEL, FONT_MEDIUM, FONT_LARGE, FONT_TITLE,
+    FONT_DISPLAY, FONT_HERO, FONT_HERO_SM, FONT_SMALL, FONT_TINY,
+    SPACE_1, SPACE_2, SPACE_3, SPACE_4, SPACE_6, SPACE_8,
+    CARD_CORNER_RADIUS, BUTTON_CORNER_RADIUS, INPUT_CORNER_RADIUS,
+    BADGE_CORNER_RADIUS, RADIUS_MD, RADIUS_LG,
+    METRIC_ACCENTS, STATUS_COLORS,
+    ANIM_FAST, ANIM_NORMAL, ANIM_SLOW,
+    ease_out_cubic,
 )
-from components.weather_card import WeatherCard
 from components.forecast_card import HourlyCard, DailyCard
-from models.weather import WeatherData
-from utils.weather_icons import get_weather_info, get_emoji
-from utils.helpers import (
-    format_temperature, format_wind_speed, format_pressure,
-    format_visibility, format_humidity, format_uv_index,
-    format_hour, format_date, format_time, now_local_str,
-    degrees_to_cardinal,
+from components.detail_card import DetailCard
+from components.search_bar import SearchBar
+from components.base import Card, Button, Badge, Separator
+from utils.helpers import format_temperature, format_wind_speed, format_pressure, format_visibility
+from utils.weather_icons import get_emoji as get_weather_emoji, get_description as get_weather_description
+from utils.animations import (
+    animate_color_transition, stagger_animate_children, ease_out_cubic,
+    fade_in, slide_in_from_left, scale_in
 )
+import tkinter as tk
+from datetime import datetime
 
 
 class DashboardView(ctk.CTkFrame):
     """
-    Dashboard view — the main screen shown after a weather search.
+    Premium main dashboard view with modern shadcn-inspired layout.
 
     Args:
-        parent:        Parent widget (the content frame in App).
-        app:           Reference to the App instance (for callbacks).
-        colors:        Current theme color dict.
-        temp_unit:     'Celsius' or 'Fahrenheit'.
-        wind_unit:     'km/h' or 'mph'.
+        parent: Parent widget.
+        colors: Current theme color dict.
+        settings: Current settings dict.
+        on_city_search: Callback(city_name: str) for search.
+        on_refresh: Callback() for manual refresh.
+        on_add_favorite: Callback() to add current city to favorites.
     """
 
-    def __init__(self, parent, app, colors: dict,
-                 temp_unit: str = "Celsius", wind_unit: str = "km/h", **kwargs):
+    def __init__(self, parent, colors: dict, settings: dict,
+                 on_city_search, on_refresh, on_add_favorite, **kwargs):
         super().__init__(parent, fg_color=colors["bg"], corner_radius=0, **kwargs)
-        self.app = app
         self.colors = colors
-        self.temp_unit = temp_unit
-        self.wind_unit = wind_unit
-        self._current_data: WeatherData | None = None
+        self.settings = settings
+        self.on_city_search = on_city_search
+        self.on_refresh = on_refresh
+        self.on_add_favorite = on_add_favorite
+
+        # Weather data
+        self._weather_data = None
+        self._city_name = ""
+        self._country = ""
+
+        # UI components
+        self._hourly_cards = []
+        self._daily_cards = []
+        self._detail_cards = {}
         self._chart_canvas = None
-        self._chart_fig = None
+        self._search_bar = None
 
-        self._build_layout()
+        self._build()
 
-    # -----------------------------------------------------------------------
-    # Layout construction
-    # -----------------------------------------------------------------------
-
-    def _build_layout(self):
-        """Build the scrollable dashboard layout."""
-        # Outer scrollable container
+    def _build(self):
+        # Main scrollable container
         self._scroll = ctk.CTkScrollableFrame(
-            self, fg_color=self.colors["bg"], corner_radius=0
+            self,
+            fg_color="transparent",
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
         )
-        self._scroll.pack(fill="both", expand=True, padx=0, pady=0)
+        self._scroll.pack(fill="both", expand=True)
 
-        self._build_welcome_banner()
+        # Enable trackpad/mouse wheel scrolling on Windows
+        self._scroll.bind("<MouseWheel>", lambda e: self._scroll._parent_canvas.yview_scroll(-int(e.delta / 120), "units"))
+        self._scroll.bind("<Shift-MouseWheel>", lambda e: self._scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
 
-    def _build_welcome_banner(self):
-        """Welcome placeholder shown before first search."""
-        self._welcome = ctk.CTkFrame(
-            self._scroll, fg_color=self.colors["card"],
-            corner_radius=CARD_CORNER_RADIUS
+        # Content frame
+        content = ctk.CTkFrame(self._scroll, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=SPACE_8, pady=SPACE_6)
+
+        # ============================================================
+        # HEADER SECTION
+        # ============================================================
+        self._build_header(content)
+
+        # ============================================================
+        # HERO SECTION - Current Weather
+        # ============================================================
+        self._build_hero(content)
+
+        # ============================================================
+        # DETAIL CARDS - 6 Metrics
+        # ============================================================
+        self._build_detail_cards(content)
+
+        # ============================================================
+        # HOURLY FORECAST
+        # ============================================================
+        self._build_hourly_section(content)
+
+        # ============================================================
+        # DAILY FORECAST (5-day)
+        # ============================================================
+        self._build_daily_section(content)
+
+        # ============================================================
+        # SUNRISE/SUNSET & ATMOSPHERIC
+        # ============================================================
+        self._build_sun_atmospheric(content)
+
+        # ============================================================
+        # WEATHER ALERTS
+        # ============================================================
+        self._build_alerts_section(content)
+
+        # ============================================================
+        # TEMPERATURE CHART (24h)
+        # ============================================================
+        self._build_chart_section(content)
+
+        # Initially show empty state
+        self._show_empty_state()
+
+    # -------------------------------------------------------------------------
+    # Header
+    # -------------------------------------------------------------------------
+    def _build_header(self, parent):
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.pack(fill="x", pady=(0, SPACE_8))
+        header.columnconfigure(1, weight=1)
+
+        # Location and date (left)
+        left = ctk.CTkFrame(header, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="w")
+
+        self._location_label = ctk.CTkLabel(
+            left,
+            text="",
+            font=FONT_DISPLAY,
+            text_color=self.colors["text"],
         )
-        self._welcome.pack(fill="x", padx=PAD_LG, pady=PAD_XL)
+        self._location_label.pack(anchor="w")
+
+        self._date_label = ctk.CTkLabel(
+            left,
+            text="",
+            font=FONT_BODY,
+            text_color=self.colors["text_secondary"],
+        )
+        self._date_label.pack(anchor="w", pady=(SPACE_1, 0))
+
+        # Search bar (center) - using new SearchBar component
+        self._search_bar = SearchBar(
+            header,
+            on_search=self.on_city_search,
+            colors=self.colors,
+            placeholder="Search city...",
+        )
+        self._search_bar.grid(row=0, column=1, sticky="ew", padx=SPACE_8)
+
+        # Right side - refresh and favorite buttons using new Button component
+        right = ctk.CTkFrame(header, fg_color="transparent")
+        right.grid(row=0, column=2, sticky="e")
+
+        self._refresh_btn = Button(
+            right,
+            text="↻ Refresh",
+            variant="secondary",
+            size="default",
+            colors=self.colors,
+            command=self.on_refresh,
+        )
+        self._refresh_btn.pack(side="right", padx=(SPACE_2, 0))
+
+        self._favorite_btn = Button(
+            right,
+            text="☆ Add to Favorites",
+            variant="default",
+            size="default",
+            colors=self.colors,
+            command=self._on_add_favorite,
+        )
+        self._favorite_btn.pack(side="right")
+
+    # -------------------------------------------------------------------------
+    # Hero Section
+    # -------------------------------------------------------------------------
+    def _build_hero(self, parent):
+        # Use Card component for hero
+        self._hero_frame = Card(
+            parent,
+            variant="default",
+            padding=SPACE_8,
+            colors=self.colors,
+        )
+        self._hero_frame.pack(fill="x", pady=(0, SPACE_8))
+
+        # Content with padding
+        hero_content = ctk.CTkFrame(self._hero_frame.content, fg_color="transparent")
+        hero_content.pack(fill="both", expand=True)
+
+        # Left: Temperature and condition
+        left = ctk.CTkFrame(hero_content, fg_color="transparent")
+        left.pack(side="left", fill="y", anchor="center")
+
+        # Temperature
+        self._temp_label = ctk.CTkLabel(
+            left,
+            text="--°",
+            font=FONT_HERO,
+            text_color=self.colors["text"],
+        )
+        self._temp_label.pack(anchor="w")
+
+        # Condition
+        self._condition_label = ctk.CTkLabel(
+            left,
+            text="",
+            font=FONT_LARGE,
+            text_color=self.colors["text_secondary"],
+        )
+        self._condition_label.pack(anchor="w", pady=(SPACE_2, 0))
+
+        # Feels like / Min-Max
+        self._feels_label = ctk.CTkLabel(
+            left,
+            text="",
+            font=FONT_BODY,
+            text_color=self.colors["text_dim"],
+        )
+        self._feels_label.pack(anchor="w", pady=(SPACE_2, 0))
+
+        # Right: Large weather illustration
+        right = ctk.CTkFrame(hero_content, fg_color="transparent")
+        right.pack(side="right", fill="y", anchor="center", padx=(SPACE_8, 0))
+
+        self._weather_icon_label = ctk.CTkLabel(
+            right,
+            text="☁️",
+            font=("Segoe UI Emoji", 140),
+        )
+        self._weather_icon_label.pack(anchor="e")
+
+    # -------------------------------------------------------------------------
+    # Detail Cards (6 metrics)
+    # -------------------------------------------------------------------------
+    def _build_detail_cards(self, parent):
+        # Section title with CardHeader pattern
+        title_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        title_frame.pack(fill="x", pady=(0, SPACE_4))
 
         ctk.CTkLabel(
-            self._welcome, text="🌤️",
-            font=("Segoe UI Emoji", 64),
-        ).pack(pady=(PAD_XL, PAD_SM))
-
-        ctk.CTkLabel(
-            self._welcome, text="Welcome to SkyView",
+            title_frame,
+            text="Weather Details",
             font=FONT_TITLE,
+            text_color=self.colors["text"],
+        ).pack(side="left")
+
+        # Cards container - grid layout
+        self._detail_container = ctk.CTkFrame(parent, fg_color="transparent")
+        self._detail_container.pack(fill="x", pady=(0, SPACE_8))
+
+        # Configure 3 columns
+        for i in range(3):
+            self._detail_container.grid_columnconfigure(i, weight=1)
+
+        # Create 6 detail cards using DetailCard component
+        detail_configs = [
+            (0, "Humidity", "--", "%", "💧", "humidity"),
+            (1, "Wind", "--", "km/h", "💨", "wind"),
+            (2, "Pressure", "--", "hPa", "📊", "pressure"),
+            (3, "Visibility", "--", "km", "👁️", "visibility"),
+            (4, "UV Index", "--", "", "☀️", "uv_index"),
+            (5, "Cloud Cover", "--", "%", "☁️", "cloud_cover"),
+        ]
+
+        for idx, title, value, unit, icon, accent_key in detail_configs:
+            row = idx // 3
+            col = idx % 3
+
+            card = DetailCard(
+                self._detail_container,
+                title=title,
+                value=value,
+                unit=unit,
+                icon=icon,
+                accent_key=accent_key,
+                colors=self.colors,
+            )
+            card.grid(row=row, column=col, padx=SPACE_2, pady=SPACE_2, sticky="nsew")
+            self._detail_cards[idx] = card
+
+    # -------------------------------------------------------------------------
+    # Hourly Forecast Section
+    # -------------------------------------------------------------------------
+    def _build_hourly_section(self, parent):
+        # Section header
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.pack(fill="x", pady=(0, SPACE_4))
+
+        ctk.CTkLabel(
+            header,
+            text="Hourly Forecast",
+            font=FONT_TITLE,
+            text_color=self.colors["text"],
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            header,
+            text="Next 24 hours",
+            font=FONT_SMALL,
+            text_color=self.colors["text_dim"],
+        ).pack(side="left", padx=(SPACE_3, 0), anchor="s")
+
+        # Horizontal scrollable container
+        self._hourly_scroll = ctk.CTkScrollableFrame(
+            parent,
+            fg_color="transparent",
+            orientation="horizontal",
+            height=170,
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
+        )
+        self._hourly_scroll.pack(fill="x", pady=(0, SPACE_8))
+
+        # Enable trackpad/mouse wheel horizontal scrolling
+        self._hourly_scroll.bind("<MouseWheel>", lambda e: self._hourly_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+        self._hourly_scroll.bind("<Shift-MouseWheel>", lambda e: self._hourly_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+
+        # Inner frame for cards
+        self._hourly_inner = ctk.CTkFrame(self._hourly_scroll, fg_color="transparent")
+        self._hourly_inner.pack(fill="both", expand=True)
+
+    # -------------------------------------------------------------------------
+    # Daily Forecast Section
+    # -------------------------------------------------------------------------
+    def _build_daily_section(self, parent):
+        # Section header
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.pack(fill="x", pady=(0, SPACE_4))
+
+        ctk.CTkLabel(
+            header,
+            text="5-Day Forecast",
+            font=FONT_TITLE,
+            text_color=self.colors["text"],
+        ).pack(side="left")
+
+        # Cards container (horizontal scroll)
+        self._daily_scroll = ctk.CTkScrollableFrame(
+            parent,
+            fg_color="transparent",
+            orientation="horizontal",
+            height=210,
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
+        )
+        self._daily_scroll.pack(fill="x", pady=(0, SPACE_8))
+
+        # Enable trackpad/mouse wheel horizontal scrolling
+        self._daily_scroll.bind("<MouseWheel>", lambda e: self._daily_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+        self._daily_scroll.bind("<Shift-MouseWheel>", lambda e: self._daily_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+
+        self._daily_inner = ctk.CTkFrame(self._daily_scroll, fg_color="transparent")
+        self._daily_inner.pack(fill="both", expand=True)
+
+    # -------------------------------------------------------------------------
+    # Sunrise/Sunset & Atmospheric
+    # -------------------------------------------------------------------------
+    def _build_sun_atmospheric(self, parent):
+        # Section header
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.pack(fill="x", pady=(0, SPACE_4))
+
+        ctk.CTkLabel(
+            header,
+            text="Sun & Atmosphere",
+            font=FONT_TITLE,
+            text_color=self.colors["text"],
+        ).pack(side="left")
+
+        # Container for two cards side by side using Card components
+        self._sun_atmos_container = ctk.CTkFrame(parent, fg_color="transparent")
+        self._sun_atmos_container.pack(fill="x", pady=(0, SPACE_8))
+        self._sun_atmos_container.grid_columnconfigure(0, weight=1)
+        self._sun_atmos_container.grid_columnconfigure(1, weight=1)
+
+        # Sunrise/Sunset Card
+        self._sun_card = Card(
+            self._sun_atmos_container,
+            variant="default",
+            padding=SPACE_6,
+            colors=self.colors,
+        )
+        self._sun_card.grid(row=0, column=0, padx=(0, SPACE_2), sticky="nsew")
+
+        sun_content = self._sun_card.content
+
+        # Title with icon
+        ctk.CTkLabel(
+            sun_content,
+            text="☀️  Sunrise / Sunset",
+            font=FONT_MEDIUM,
+            text_color=self.colors["text"],
+        ).pack(anchor="w", pady=(0, SPACE_4))
+
+        self._sunrise_label = ctk.CTkLabel(
+            sun_content,
+            text="Sunrise: --:--",
+            font=FONT_BODY,
+            text_color=self.colors["text_secondary"],
+        )
+        self._sunrise_label.pack(anchor="w", pady=SPACE_1)
+
+        self._sunset_label = ctk.CTkLabel(
+            sun_content,
+            text="Sunset: --:--",
+            font=FONT_BODY,
+            text_color=self.colors["text_secondary"],
+        )
+        self._sunset_label.pack(anchor="w", pady=SPACE_1)
+
+        self._daylight_label = ctk.CTkLabel(
+            sun_content,
+            text="Daylight: --h --m",
+            font=FONT_SMALL,
+            text_color=self.colors["text_dim"],
+        )
+        self._daylight_label.pack(anchor="w", pady=(SPACE_3, 0))
+
+        # Atmospheric Card
+        self._atmos_card = Card(
+            self._sun_atmos_container,
+            variant="default",
+            padding=SPACE_6,
+            colors=self.colors,
+        )
+        self._atmos_card.grid(row=0, column=1, padx=(SPACE_2, 0), sticky="nsew")
+
+        atmos_content = self._atmos_card.content
+
+        ctk.CTkLabel(
+            atmos_content,
+            text="🌫️  Atmospheric Conditions",
+            font=FONT_MEDIUM,
+            text_color=self.colors["text"],
+        ).pack(anchor="w", pady=(0, SPACE_4))
+
+        self._cloud_label = ctk.CTkLabel(
+            atmos_content,
+            text="Cloud Cover: --%",
+            font=FONT_BODY,
+            text_color=self.colors["text_secondary"],
+        )
+        self._cloud_label.pack(anchor="w", pady=SPACE_1)
+
+        self._visibility_label = ctk.CTkLabel(
+            atmos_content,
+            text="Visibility: -- km",
+            font=FONT_BODY,
+            text_color=self.colors["text_secondary"],
+        )
+        self._visibility_label.pack(anchor="w", pady=SPACE_1)
+
+        self._pressure_label = ctk.CTkLabel(
+            atmos_content,
+            text="Pressure: -- hPa",
+            font=FONT_BODY,
+            text_color=self.colors["text_secondary"],
+        )
+        self._pressure_label.pack(anchor="w", pady=SPACE_1)
+
+    # -------------------------------------------------------------------------
+    # Weather Alerts Section
+    # -------------------------------------------------------------------------
+    def _build_alerts_section(self, parent):
+        self._alerts_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self._alerts_frame.pack(fill="x", pady=(0, SPACE_8))
+
+        # Initially hidden
+        self._alerts_frame.pack_forget()
+
+        # Use Card with destructive variant colors for alerts
+        self._alerts_card = Card(
+            self._alerts_frame,
+            variant="outlined",
+            padding=SPACE_6,
+            colors=self.colors,
+        )
+        # Override border color for alerts
+        self._alerts_card.configure(
+            border_color=self.colors["destructive"],
+            fg_color=self.colors["destructive_light"],
+        )
+        self._alerts_card.pack(fill="x")
+
+        alerts_content = self._alerts_card.content
+
+        alert_header = ctk.CTkFrame(alerts_content, fg_color="transparent")
+        alert_header.pack(fill="x", pady=(0, SPACE_2))
+
+        ctk.CTkLabel(
+            alert_header,
+            text="⚠️  Weather Alert",
+            font=FONT_MEDIUM,
+            text_color=self.colors["destructive"],
+        ).pack(side="left")
+
+        self._alert_text = ctk.CTkLabel(
+            alerts_content,
+            text="",
+            font=FONT_BODY,
+            text_color=self.colors["text"],
+            wraplength=800,
+            justify="left",
+        )
+        self._alert_text.pack(anchor="w")
+
+    # -------------------------------------------------------------------------
+    # Chart Section
+    # -------------------------------------------------------------------------
+    def _build_chart_section(self, parent):
+        # Section header
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.pack(fill="x", pady=(0, SPACE_4))
+
+        ctk.CTkLabel(
+            header,
+            text="Temperature Trend (24h)",
+            font=FONT_TITLE,
+            text_color=self.colors["text"],
+        ).pack(side="left")
+
+        # Chart container using Card
+        self._chart_frame = Card(
+            parent,
+            variant="default",
+            padding=SPACE_4,
+            colors=self.colors,
+        )
+        self._chart_frame.pack(fill="x", pady=(0, SPACE_8))
+        self._chart_frame.configure(height=300)
+        self._chart_frame.pack_propagate(False)
+
+        self._chart_placeholder = ctk.CTkLabel(
+            self._chart_frame.content,
+            text="📊  Temperature chart will appear here",
+            font=FONT_MEDIUM,
+            text_color=self.colors["text_dim"],
+        )
+        self._chart_placeholder.pack(expand=True)
+
+    # -------------------------------------------------------------------------
+    # Empty State
+    # -------------------------------------------------------------------------
+    def _show_empty_state(self):
+        """Show empty state when no weather data loaded."""
+        self._hero_frame.pack_forget()
+        self._detail_container.pack_forget()
+        self._hourly_scroll.pack_forget()
+        self._daily_scroll.pack_forget()
+        self._sun_atmos_container.pack_forget()
+        self._chart_frame.pack_forget()
+
+        # Show empty state in hero area using Card
+        self._empty_frame = Card(
+            self._scroll,
+            variant="default",
+            padding=SPACE_8,
+            colors=self.colors,
+        )
+        self._empty_frame.pack(fill="both", expand=True, padx=SPACE_8, pady=SPACE_8)
+
+        empty_content = self._empty_frame.content
+
+        ctk.CTkLabel(
+            empty_content,
+            text="🌤️",
+            font=("Segoe UI Emoji", 80),
+        ).pack(pady=(SPACE_8, SPACE_6))
+
+        ctk.CTkLabel(
+            empty_content,
+            text="Welcome to SkyCast",
+            font=FONT_DISPLAY,
             text_color=self.colors["text"],
         ).pack()
 
         ctk.CTkLabel(
-            self._welcome,
-            text="Search for a city above to see real-time weather.",
+            empty_content,
+            text="Search for a city to see premium weather details",
             font=FONT_BODY,
-            text_color=self.colors["text_dim"],
-        ).pack(pady=(PAD_SM, PAD_XL))
+            text_color=self.colors["text_secondary"],
+        ).pack(pady=(SPACE_2, SPACE_6))
 
-    # -----------------------------------------------------------------------
-    # Public interface — called by App
-    # -----------------------------------------------------------------------
+        Button(
+            empty_content,
+            text="Search City",
+            variant="default",
+            size="lg",
+            colors=self.colors,
+            command=lambda: self.on_city_search(""),
+        ).pack()
 
-    def show_loading(self):
-        """Show a loading indicator and disable interactivity."""
-        self._clear_weather_widgets()
-        if hasattr(self, "_welcome"):
-            self._welcome.destroy()
+    def _hide_empty_state(self):
+        """Hide empty state and show weather content."""
+        if hasattr(self, '_empty_frame'):
+            self._empty_frame.destroy()
 
-        self._loading_frame = ctk.CTkFrame(
-            self._scroll, fg_color=self.colors["card"],
-            corner_radius=CARD_CORNER_RADIUS
-        )
-        self._loading_frame.pack(fill="x", padx=PAD_LG, pady=PAD_XL)
+        # All sections were created in _build() - just repack them in order
+        self._hero_frame.pack(fill="x", pady=(0, SPACE_8))
+        self._detail_container.pack(fill="x", pady=(0, SPACE_8))
+        self._hourly_scroll.pack(fill="x", pady=(0, SPACE_8))
+        self._daily_scroll.pack(fill="x", pady=(0, SPACE_8))
+        self._sun_atmos_container.pack(fill="x", pady=(0, SPACE_8))
+        self._chart_frame.pack(fill="x", pady=(0, SPACE_8))
 
-        ctk.CTkLabel(
-            self._loading_frame,
-            text="⏳  Fetching weather data...",
-            font=FONT_LARGE,
-            text_color=self.colors["text"],
-        ).pack(pady=PAD_XL)
+        # Trigger staggered entrance animations for sections
+        self._animate_sections_entrance()
 
-    def show_error(self, message: str):
-        """Display an error message."""
-        self._clear_weather_widgets()
-
-        self._error_frame = ctk.CTkFrame(
-            self._scroll, fg_color=self.colors["card"],
-            corner_radius=CARD_CORNER_RADIUS
-        )
-        self._error_frame.pack(fill="x", padx=PAD_LG, pady=PAD_XL)
-
-        ctk.CTkLabel(
-            self._error_frame, text="⚠️",
-            font=("Segoe UI Emoji", 48),
-        ).pack(pady=(PAD_XL, PAD_SM))
-
-        ctk.CTkLabel(
-            self._error_frame, text=message,
-            font=FONT_BODY,
-            text_color=self.colors["warning"],
-            wraplength=600,
-        ).pack(pady=(0, PAD_XL))
-
-    def display_weather(self, data: WeatherData):
-        """Render all weather sections from a WeatherData object."""
-        self._current_data = data
-        self._clear_weather_widgets()
-
-        self._build_current_section(data)
-        self._build_info_cards(data)
-        self._build_hourly_forecast(data)
-        self._build_daily_forecast(data)
-        self._build_chart(data)
-
-    def on_show(self):
-        """Called when this view is navigated to."""
-        pass  # Nothing to refresh — data already set
-
-    # -----------------------------------------------------------------------
-    # Section builders
-    # -----------------------------------------------------------------------
-
-    def _build_current_section(self, data: WeatherData):
-        """City name, date/time, temperature, condition."""
-        frame = ctk.CTkFrame(
-            self._scroll, fg_color=self.colors["card"],
-            corner_radius=CARD_CORNER_RADIUS
-        )
-        frame.pack(fill="x", padx=PAD_LG, pady=(PAD_LG, PAD_SM))
-        self._weather_widgets.append(frame)
-
-        # Top row: city + favorite button
-        top_row = ctk.CTkFrame(frame, fg_color="transparent")
-        top_row.pack(fill="x", padx=PAD_LG, pady=(PAD_LG, 0))
-
-        city_text = f"{data.city}, {data.country}" if data.country else data.city
-        ctk.CTkLabel(
-            top_row, text=city_text,
-            font=FONT_TITLE, text_color=self.colors["text"],
-        ).pack(side="left")
-
-        ctk.CTkButton(
-            top_row, text="⭐ Add to Favorites",
-            font=FONT_SMALL,
-            fg_color=self.colors["accent"],
-            hover_color=self.colors.get("accent_hover", self.colors["accent"]),
-            text_color="#ffffff",
-            width=160, height=32,
-            corner_radius=8,
-            command=lambda: self.app.add_to_favorites(data),
-        ).pack(side="right")
-
-        # Date and time
-        ctk.CTkLabel(
-            frame, text=now_local_str(),
-            font=FONT_SMALL, text_color=self.colors["text_dim"],
-        ).pack(anchor="w", padx=PAD_LG, pady=(PAD_SM // 2, 0))
-
-        # Main weather display row
-        main_row = ctk.CTkFrame(frame, fg_color="transparent")
-        main_row.pack(fill="x", padx=PAD_LG, pady=PAD_SM)
-
-        # Temperature
-        temp_str = format_temperature(data.temperature, self.temp_unit)
-        ctk.CTkLabel(
-            main_row, text=temp_str,
-            font=FONT_HERO, text_color=self.colors["text"],
-        ).pack(side="left")
-
-        # Condition details
-        desc, emoji = get_weather_info(data.weather_code, data.is_day)
-        detail_col = ctk.CTkFrame(main_row, fg_color="transparent")
-        detail_col.pack(side="left", padx=PAD_XL)
-
-        ctk.CTkLabel(
-            detail_col, text=emoji,
-            font=("Segoe UI Emoji", 52),
-        ).pack(anchor="w")
-
-        ctk.CTkLabel(
-            detail_col, text=desc,
-            font=FONT_LARGE, text_color=self.colors["text"],
-        ).pack(anchor="w")
-
-        feels = format_temperature(data.feels_like, self.temp_unit)
-        ctk.CTkLabel(
-            detail_col,
-            text=f"Feels like {feels}",
-            font=FONT_BODY, text_color=self.colors["text_dim"],
-        ).pack(anchor="w")
-
-        # Sunrise / sunset if daily data available
-        if data.daily:
-            today = data.daily[0]
-            sun_text = (
-                f"🌅 Sunrise {format_time(today.sunrise)}    "
-                f"🌇 Sunset {format_time(today.sunset)}"
-            )
-            ctk.CTkLabel(
-                frame, text=sun_text,
-                font=FONT_SMALL, text_color=self.colors["text_dim"],
-            ).pack(anchor="w", padx=PAD_LG, pady=(0, PAD_LG))
-
-    def _build_info_cards(self, data: WeatherData):
-        """Row of weather metric cards."""
-        frame = ctk.CTkFrame(self._scroll, fg_color="transparent")
-        frame.pack(fill="x", padx=PAD_LG, pady=PAD_SM)
-        self._weather_widgets.append(frame)
-
-        # Determine UV index (from daily[0] if available)
-        uv_val = data.daily[0].uv_index_max if data.daily else 0.0
-
-        metrics = [
-            ("💧", "Humidity",    format_humidity(data.humidity), self.colors["success"]),
-            ("💨", "Wind",        f"{format_wind_speed(data.wind_speed, self.wind_unit)} {degrees_to_cardinal(data.wind_direction)}", self.colors["accent"]),
-            ("🌡️", "Pressure",   format_pressure(data.pressure), self.colors["warning"]),
-            ("👁️", "Visibility", format_visibility(data.visibility), self.colors["accent"]),
-            ("☀️", "UV Index",   format_uv_index(uv_val), self.colors["warning"]),
+    def _animate_sections_entrance(self):
+        """Animate dashboard sections with staggered entrance."""
+        sections = [
+            self._hero_frame,
+            self._detail_container,
+            self._hourly_scroll,
+            self._daily_scroll,
+            self._sun_atmos_container,
+            self._chart_frame,
         ]
 
-        for col_idx, (icon, label, value, accent) in enumerate(metrics):
-            card = WeatherCard(
-                frame, self.colors, icon=icon, label=label, value=value, accent_color=accent
+        stagger_animate_children(
+            self._scroll,
+            lambda child, idx: None,  # Sections animate themselves via their own logic
+            delay_per_child=60,
+            start_delay=100,
+        )
+
+    # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+    def display_weather(self, weather_data, city_name: str, country: str):
+        """Display weather data in the dashboard."""
+        self._weather_data = weather_data
+        self._city_name = city_name
+        self._country = country
+
+        self._hide_empty_state()
+
+        # Update header
+        self._location_label.configure(text=f"{city_name}, {country}")
+        self._date_label.configure(text=datetime.now().strftime("%A, %B %d, %Y"))
+
+        # Update hero
+        temp_unit = "°C" if self.settings.get("temperature_unit") == "Celsius" else "°F"
+        temp = weather_data.current.temperature
+        if self.settings.get("temperature_unit") == "Fahrenheit":
+            temp = temp * 9/5 + 32
+        self._temp_label.configure(text=f"{temp:.0f}{temp_unit}")
+
+        condition = get_weather_description(weather_data.current.weather_code)
+        icon = get_weather_emoji(weather_data.current.weather_code, weather_data.current.is_day)
+        self._condition_label.configure(text=f"{icon}  {condition}")
+        self._weather_icon_label.configure(text=icon)
+
+        # Feels like / Min-Max
+        feels = weather_data.current.feels_like
+        if self.settings.get("temperature_unit") == "Fahrenheit":
+            feels = feels * 9/5 + 32
+
+        daily = weather_data.daily[0] if weather_data.daily else None
+        if daily:
+            high = daily.temp_max
+            low = daily.temp_min
+            if self.settings.get("temperature_unit") == "Fahrenheit":
+                high = high * 9/5 + 32
+                low = low * 9/5 + 32
+            self._feels_label.configure(
+                text=f"Feels like {feels:.0f}{temp_unit}  •  H {high:.0f}{temp_unit} / L {low:.0f}{temp_unit}"
             )
-            card.grid(row=0, column=col_idx, padx=PAD_SM, pady=0, sticky="nsew")
-            frame.columnconfigure(col_idx, weight=1)
+        else:
+            self._feels_label.configure(text=f"Feels like {feels:.0f}{temp_unit}")
 
-    def _build_hourly_forecast(self, data: WeatherData):
-        """Horizontal strip of hourly forecast cards."""
-        if not data.hourly:
-            return
+        # Update detail cards
+        self._update_detail_cards(weather_data)
 
-        section = ctk.CTkFrame(self._scroll, fg_color="transparent")
-        section.pack(fill="x", padx=PAD_LG, pady=(PAD_SM, 0))
-        self._weather_widgets.append(section)
+        # Update hourly forecast
+        self._update_hourly_forecast(weather_data)
 
-        ctk.CTkLabel(
-            section, text="Hourly Forecast",
-            font=FONT_MEDIUM, text_color=self.colors["text"],
-        ).pack(anchor="w", pady=(0, PAD_SM))
+        # Update daily forecast
+        self._update_daily_forecast(weather_data)
 
-        scroll_row = ctk.CTkScrollableFrame(
-            section, fg_color="transparent",
-            orientation="horizontal", height=120,
-        )
-        scroll_row.pack(fill="x")
+        # Update sun & atmospheric
+        self._update_sun_atmospheric(weather_data)
 
-        for hour in data.hourly:
-            emoji = get_emoji(hour.weather_code, 1)
-            temp = format_temperature(hour.temperature, self.temp_unit)
-            HourlyCard(
-                scroll_row, self.colors,
-                time_label=format_hour(hour.time),
-                emoji=emoji,
-                temperature=temp,
-                precip=str(hour.precip_probability),
-            ).pack(side="left", padx=PAD_SM // 2)
+        # Update chart
+        self._update_chart(weather_data)
 
-    def _build_daily_forecast(self, data: WeatherData):
-        """Row of daily forecast cards."""
-        if not data.daily:
-            return
+    def _update_detail_cards(self, weather_data):
+        """Update the 6 detail cards with current weather data."""
+        current = weather_data.current
+        temp_unit = "°C" if self.settings.get("temperature_unit") == "Celsius" else "°F"
+        wind_unit = self.settings.get("wind_unit", "km/h")
 
-        section = ctk.CTkFrame(self._scroll, fg_color="transparent")
-        section.pack(fill="x", padx=PAD_LG, pady=(PAD_SM, 0))
-        self._weather_widgets.append(section)
+        # Card data: (index, title, value, unit, icon, accent_key)
+        cards_data = [
+            (0, "Humidity", f"{current.humidity:.0f}", "%", "💧", "humidity"),
+            (1, "Wind", format_wind_speed(current.wind_speed, wind_unit), wind_unit, "💨", "wind"),
+            (2, "Pressure", format_pressure(current.pressure), "hPa", "📊", "pressure"),
+            (3, "Visibility", format_visibility(current.visibility), "km", "👁️", "visibility"),
+            (4, "UV Index", f"{weather_data.daily[0].uv_index_max:.0f}" if weather_data.daily else "--", "", "☀️", "uv_index"),
+            (5, "Cloud Cover", f"{current.cloud_cover:.0f}" if hasattr(current, 'cloud_cover') and current.cloud_cover is not None else "--", "%", "☁️", "cloud_cover"),
+        ]
 
-        ctk.CTkLabel(
-            section, text="7-Day Forecast",
-            font=FONT_MEDIUM, text_color=self.colors["text"],
-        ).pack(anchor="w", pady=(0, PAD_SM))
+        for idx, title, value, unit, icon, accent_key in cards_data:
+            if idx in self._detail_cards:
+                card = self._detail_cards[idx]
+                card.update_value(value, unit)
+                # Update title and icon would need card recreation - simplified for now
+                # In a full implementation, we'd store references to all labels
 
-        cards_row = ctk.CTkFrame(section, fg_color="transparent")
-        cards_row.pack(fill="x")
-
-        for i, day in enumerate(data.daily):
-            emoji = get_emoji(day.weather_code, 1)
-            date_lbl = "Today" if i == 0 else format_date(day.date)
-            DailyCard(
-                cards_row, self.colors,
-                date_label=date_lbl,
-                emoji=emoji,
-                temp_max=format_temperature(day.temp_max, self.temp_unit),
-                temp_min=format_temperature(day.temp_min, self.temp_unit),
-            ).grid(row=0, column=i, padx=PAD_SM // 2, sticky="nsew")
-            cards_row.columnconfigure(i, weight=1)
-
-    def _build_chart(self, data: WeatherData):
-        """Embed a Matplotlib temperature chart."""
-        if not data.hourly:
-            return
-
-        section = ctk.CTkFrame(self._scroll, fg_color="transparent")
-        section.pack(fill="x", padx=PAD_LG, pady=(PAD_SM, PAD_LG))
-        self._weather_widgets.append(section)
-
-        ctk.CTkLabel(
-            section, text="Temperature Today",
-            font=FONT_MEDIUM, text_color=self.colors["text"],
-        ).pack(anchor="w", pady=(0, PAD_SM))
-
-        chart_frame = ctk.CTkFrame(
-            section, fg_color=self.colors["chart_bg"],
-            corner_radius=CARD_CORNER_RADIUS,
-        )
-        chart_frame.pack(fill="x")
-
-        # Collect chart data
-        hours = [format_hour(h.time) for h in data.hourly]
-        temps = [h.temperature for h in data.hourly]
-
-        bg = self.colors["chart_bg"]
-        line_color = self.colors["chart_line"]
-        text_color = self.colors["text"]
-        text_dim = self.colors["text_dim"]
-
-        # Create figure
-        fig, ax = plt.subplots(figsize=(10, 2.8))
-        fig.patch.set_facecolor(bg)
-        ax.set_facecolor(bg)
-
-        # Plot line + fill
-        ax.plot(hours, temps, color=line_color, linewidth=2, zorder=3)
-        ax.fill_between(hours, temps,
-                         min(temps) - 2,
-                         alpha=0.25, color=line_color)
-
-        # Style
-        ax.set_xlabel("Hour", color=text_dim, fontsize=8)
-        ax.set_ylabel("°C", color=text_dim, fontsize=8)
-        ax.tick_params(colors=text_dim, labelsize=7)
-        for spine in ax.spines.values():
-            spine.set_edgecolor(self.colors.get("border", "#444"))
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=12))
-
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout(pad=0.5)
-
-        # Embed in Tkinter
-        if self._chart_canvas:
-            self._chart_canvas.get_tk_widget().destroy()
-        self._chart_canvas = FigureCanvasTkAgg(fig, master=chart_frame)
-        self._chart_canvas.draw()
-        self._chart_canvas.get_tk_widget().pack(fill="x", padx=PAD_SM, pady=PAD_SM)
-        self._chart_fig = fig
-        plt.close(fig)
-
-    # -----------------------------------------------------------------------
-    # Helpers
-    # -----------------------------------------------------------------------
-
-    def _clear_weather_widgets(self):
-        """Remove all previously built weather sections."""
-        if not hasattr(self, "_weather_widgets"):
-            self._weather_widgets = []
-        for widget in self._weather_widgets:
+    def _update_hourly_forecast(self, weather_data):
+        """Update hourly forecast cards with staggered animation."""
+        # Clear existing
+        for widget in self._hourly_inner.winfo_children():
             widget.destroy()
-        self._weather_widgets = []
-        # Also destroy loading/error frames if present
-        for attr in ("_loading_frame", "_error_frame", "_welcome"):
-            if hasattr(self, attr):
-                try:
-                    getattr(self, attr).destroy()
-                except Exception:
-                    pass
+        self._hourly_cards = []
+
+        if not weather_data.hourly:
+            return
+
+        # Show next 24 hours
+        for i, hour in enumerate(weather_data.hourly[:24]):
+            time_str = hour.time.strftime("%I %p").lstrip("0").lower()
+            if i == 0:
+                time_str = "Now"
+
+            temp_unit = "°C" if self.settings.get("temperature_unit") == "Celsius" else "°F"
+            temp = hour.temperature
+            if self.settings.get("temperature_unit") == "Fahrenheit":
+                temp = temp * 9/5 + 32
+
+            icon = get_weather_emoji(hour.weather_code, hour.time.hour >= 6 and hour.time.hour < 18)
+            is_current = (i == 0)
+
+            card = HourlyCard(
+                self._hourly_inner,
+                time_str=time_str,
+                temp=f"{temp:.0f}{temp_unit}",
+                condition_icon=icon,
+                precip_prob=hour.precip_probability,
+                is_current=is_current,
+                colors=self.colors,
+            )
+            card.pack(side="left", padx=(0, SPACE_2) if i < 23 else (0, 0))
+            self._hourly_cards.append(card)
+
+        # Stagger animate the cards
+        stagger_animate_children(
+            self._hourly_inner,
+            lambda child, idx: None,  # Cards animate themselves
+            delay_per_child=40,
+            start_delay=50,
+        )
+
+    def _update_daily_forecast(self, weather_data):
+        """Update daily forecast cards with staggered animation."""
+        # Clear existing
+        for widget in self._daily_inner.winfo_children():
+            widget.destroy()
+        self._daily_cards = []
+
+        if not weather_data.daily:
+            return
+
+        for i, day in enumerate(weather_data.daily[:5]):
+            date_obj = day.date
+            day_str = date_obj.strftime("%a")
+            date_str = date_obj.strftime("%b %d")
+            is_today = (i == 0)
+            if is_today:
+                day_str = "Today"
+
+            temp_unit = "°C" if self.settings.get("temperature_unit") == "Celsius" else "°F"
+            high = day.temp_max
+            low = day.temp_min
+            if self.settings.get("temperature_unit") == "Fahrenheit":
+                high = high * 9/5 + 32
+                low = low * 9/5 + 32
+
+            icon = get_weather_emoji(day.weather_code, True)
+
+            card = DailyCard(
+                self._daily_inner,
+                day_str=day_str,
+                date_str=date_str,
+                high_temp=f"{high:.0f}{temp_unit}",
+                low_temp=f"{low:.0f}{temp_unit}",
+                condition_icon=icon,
+                precip_prob=day.precipitation_probability_max or 0,
+                uv_index=day.uv_index_max or 0,
+                is_today=is_today,
+                colors=self.colors,
+            )
+            card.pack(side="left", padx=(0, SPACE_2) if i < 4 else (0, 0))
+            self._daily_cards.append(card)
+
+        # Stagger animate the cards
+        stagger_animate_children(
+            self._daily_inner,
+            lambda child, idx: None,
+            delay_per_child=50,
+            start_delay=50,
+        )
+
+    def _update_sun_atmospheric(self, weather_data):
+        """Update sunrise/sunset and atmospheric conditions."""
+        if not weather_data.daily:
+            return
+
+        today = weather_data.daily[0]
+
+        # Sunrise/Sunset
+        if today.sunrise and today.sunset:
+            self._sunrise_label.configure(text=f"Sunrise: {today.sunrise.strftime('%I:%M %p').lstrip('0')}")
+            self._sunset_label.configure(text=f"Sunset: {today.sunset.strftime('%I:%M %p').lstrip('0')}")
+
+            # Daylight duration
+            daylight_seconds = (today.sunset - today.sunrise).total_seconds()
+            hours = int(daylight_seconds // 3600)
+            minutes = int((daylight_seconds % 3600) // 60)
+            self._daylight_label.configure(text=f"Daylight: {hours}h {minutes}m")
+
+        # Atmospheric
+        current = weather_data.current
+        if hasattr(current, 'cloud_cover') and current.cloud_cover is not None:
+            self._cloud_label.configure(text=f"Cloud Cover: {current.cloud_cover:.0f}%")
+        self._visibility_label.configure(text=f"Visibility: {format_visibility(current.visibility)}")
+        self._pressure_label.configure(text=f"Pressure: {format_pressure(current.pressure)}")
+
+    def _update_chart(self, weather_data):
+        """Update temperature chart with Matplotlib."""
+        if not weather_data.hourly:
+            return
+
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+            import numpy as np
+
+            # Prepare data
+            hours = weather_data.hourly[:24]
+            times = [h.time.strftime("%H:%M") for h in hours]
+            temps = [h.temperature for h in hours]
+            if self.settings.get("temperature_unit") == "Fahrenheit":
+                temps = [t * 9/5 + 32 for t in temps]
+
+            # Create figure
+            fig, ax = plt.subplots(figsize=(10, 3.5), facecolor=self.colors["chart_bg"])
+            ax.set_facecolor(self.colors["chart_bg"])
+
+            # Plot
+            x = np.arange(len(times))
+            ax.plot(x, temps, color=self.colors["chart_line"], linewidth=2.5, marker='o', markersize=4, markerfacecolor=self.colors["chart_line"])
+            ax.fill_between(x, temps, alpha=0.15, color=self.colors["chart_fill"])
+
+            # Styling
+            ax.set_xticks(x[::2])
+            ax.set_xticklabels([times[i] for i in range(0, len(times), 2)], color=self.colors["text_dim"], fontsize=9, fontfamily='Inter')
+            ax.tick_params(axis='y', colors=self.colors["text_dim"], labelsize=9)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color(self.colors["chart_grid"])
+            ax.spines['bottom'].set_color(self.colors["chart_grid"])
+            ax.grid(True, alpha=0.15, color=self.colors["chart_grid"], linestyle='-', linewidth=0.5)
+            ax.set_axisbelow(True)
+
+            # Y label
+            unit = "°F" if self.settings.get("temperature_unit") == "Fahrenheit" else "°C"
+            ax.set_ylabel(f"Temperature ({unit})", color=self.colors["text_secondary"], fontsize=10, fontfamily='Inter', labelpad=10)
+
+            plt.tight_layout(pad=1.5)
+
+            # Remove placeholder
+            self._chart_placeholder.pack_forget()
+
+            # Remove old canvas
+            if self._chart_canvas:
+                self._chart_canvas.get_tk_widget().destroy()
+
+            # Embed in Tkinter
+            self._chart_canvas = FigureCanvasTkAgg(fig, master=self._chart_frame.content)
+            self._chart_canvas.draw()
+            self._chart_canvas.get_tk_widget().pack(fill="both", expand=True, padx=SPACE_4, pady=SPACE_4)
+
+        except Exception as e:
+            print(f"Chart error: {e}")
+            self._chart_placeholder.configure(text="Chart unavailable")
+
+    def show_loading(self):
+        """Show loading state."""
+        self._refresh_btn.set_loading(True)
+
+    def show_error(self, message: str):
+        """Show error state."""
+        self._refresh_btn.set_loading(False)
+        # Could show error in a toast or status area
+
+    def set_refresh_state(self, loading: bool):
+        """Set refresh button loading state."""
+        self._refresh_btn.set_loading(loading)
+
+    def _on_add_favorite(self):
+        """Handle add to favorites click."""
+        if self._city_name:
+            self.on_add_favorite()
 
     def apply_colors(self, colors: dict):
-        """Re-apply theme colors."""
+        """Apply new theme colors."""
         self.colors = colors
         self.configure(fg_color=colors["bg"])
-        self._scroll.configure(fg_color=colors["bg"])
-        if self._current_data:
-            self.display_weather(self._current_data)
+        self._scroll.configure(
+            scrollbar_button_color=colors["scrollbar"],
+            scrollbar_button_hover_color=colors["scrollbar_hover"],
+        )
+        # Update search bar
+        if self._search_bar:
+            self._search_bar.apply_colors(colors)
 
-    def update_units(self, temp_unit: str, wind_unit: str):
-        """Re-render with new unit preferences."""
-        self.temp_unit = temp_unit
-        self.wind_unit = wind_unit
-        if self._current_data:
-            self.display_weather(self._current_data)
+        # Update buttons
+        self._refresh_btn.apply_colors(colors)
+        self._favorite_btn.apply_colors(colors)
 
+        # Update hero card
+        self._hero_frame.apply_colors(colors)
+
+        # Update detail cards
+        for card in self._detail_cards.values():
+            card.apply_colors(colors)
+
+        # Update sun/atmos cards
+        self._sun_card.apply_colors(colors)
+        self._atmos_card.apply_colors(colors)
+
+        # Update alerts card
+        self._alerts_card.apply_colors(colors)
+        self._alerts_card.configure(
+            border_color=colors["destructive"],
+            fg_color=colors["destructive_light"],
+        )
+
+        # Update chart card
+        self._chart_frame.apply_colors(colors)
+
+        # Update forecast cards
+        for card in self._hourly_cards:
+            card.apply_colors(colors)
+        for card in self._daily_cards:
+            card.apply_colors(colors)
+
+        # Update text colors
+        self._location_label.configure(text_color=colors["text"])
+        self._date_label.configure(text_color=colors["text_secondary"])
+        self._temp_label.configure(text_color=colors["text"])
+        self._condition_label.configure(text_color=colors["text_secondary"])
+        self._feels_label.configure(text_color=colors["text_dim"])
+        self._sunrise_label.configure(text_color=colors["text_secondary"])
+        self._sunset_label.configure(text_color=colors["text_secondary"])
+        self._daylight_label.configure(text_color=colors["text_dim"])
+        self._cloud_label.configure(text_color=colors["text_secondary"])
+        self._visibility_label.configure(text_color=colors["text_secondary"])
+        self._pressure_label.configure(text_color=colors["text_secondary"])
+        self._alert_text.configure(text_color=colors["text"])
+        self._chart_placeholder.configure(text_color=colors["text_dim"])

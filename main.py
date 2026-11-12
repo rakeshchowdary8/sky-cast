@@ -1,5 +1,5 @@
 """
-main.py — SkyView application entry point.
+main.py — SkyCast application entry point.
 
 Creates the App window, initializes the database, loads settings,
 builds the sidebar and all views, then starts the Tkinter event loop.
@@ -41,7 +41,6 @@ from database import database
 from services.weather_service import fetch_weather, WeatherServiceError
 from utils.validators import validate_city_name
 from components.sidebar import Sidebar
-from components.search_bar import SearchBar
 from views.dashboard import DashboardView
 from views.favorites import FavoritesView
 from views.history import HistoryView
@@ -64,7 +63,7 @@ logger = logging.getLogger(__name__)
 
 class App(ctk.CTk):
     """
-    SkyView main application window.
+    SkyCast main application window.
 
     Responsibilities:
     - Initialise the database on startup.
@@ -101,7 +100,7 @@ class App(ctk.CTk):
         self.configure(fg_color=self._colors["bg"])
 
         # --- Thread pool ---
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="skyview")
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="skycast")
         self._request_id = 0  # Incremented on each search; used to discard stale results
 
         # --- Build UI ---
@@ -115,7 +114,7 @@ class App(ctk.CTk):
         if self._default_city:
             self.after(300, lambda: self.search_city(self._default_city))
 
-        logger.info("SkyView started.")
+        logger.info("SkyCast started.")
 
     # -----------------------------------------------------------------------
     # Layout
@@ -134,30 +133,30 @@ class App(ctk.CTk):
             self._main,
             on_navigate=self.show_view,
             colors=self._colors,
+            on_toggle=self._on_sidebar_toggle,
         )
         self._sidebar.grid(row=0, column=0, sticky="nsew")
 
-        # --- Right panel: header + content ---
+        # --- Right panel: content (no separate header - search is in dashboard) ---
         right_panel = ctk.CTkFrame(self._main, fg_color="transparent", corner_radius=0)
         right_panel.grid(row=0, column=1, sticky="nsew")
-        right_panel.rowconfigure(1, weight=1)
+        right_panel.rowconfigure(0, weight=1)
         right_panel.columnconfigure(0, weight=1)
-
-        # Header strip with search bar
-        self._build_header(right_panel)
 
         # Content frame that holds all swappable views
         self._content = ctk.CTkFrame(right_panel, fg_color="transparent", corner_radius=0)
-        self._content.grid(row=1, column=0, sticky="nsew")
+        self._content.grid(row=0, column=0, sticky="nsew")
         self._content.rowconfigure(0, weight=1)
         self._content.columnconfigure(0, weight=1)
 
         # Instantiate all views (all hidden except dashboard)
         self._dashboard = DashboardView(
-            self._content, app=self,
+            self._content,
             colors=self._colors,
-            temp_unit=self._temp_unit,
-            wind_unit=self._wind_unit,
+            settings=self._db_settings,
+            on_city_search=self.search_city,
+            on_refresh=self._on_refresh,
+            on_add_favorite=self.add_to_favorites,
         )
         self._favorites = FavoritesView(self._content, app=self, colors=self._colors)
         self._history = HistoryView(
@@ -181,48 +180,10 @@ class App(ctk.CTk):
 
         self.show_view("dashboard")
 
-    def _build_header(self, parent):
-        """Top bar with logo text, search bar, and theme toggle."""
-        header = ctk.CTkFrame(
-            parent,
-            height=64,
-            fg_color=self._colors["sidebar"],
-            corner_radius=0,
-        )
-        header.grid(row=0, column=0, sticky="ew")
-        header.pack_propagate(False)
-
-        inner = ctk.CTkFrame(header, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=S.PAD_MD)
-
-        # App name
-        ctk.CTkLabel(
-            inner, text=f"🌤️  {S.APP_NAME}",
-            font=S.FONT_LARGE,
-            text_color=self._colors["text"],
-        ).pack(side="left", padx=(0, S.PAD_LG))
-
-        # Search bar
-        self._search_bar = SearchBar(
-            inner,
-            on_search=self.search_city,
-            colors=self._colors,
-        )
-        self._search_bar.pack(side="left", padx=(0, S.PAD_MD))
-
-        # Theme toggle button
-        self._theme_btn = ctk.CTkButton(
-            inner,
-            text="☀️ Light" if self._theme == "dark" else "🌙 Dark",
-            width=90, height=36,
-            font=S.FONT_SMALL,
-            fg_color=self._colors["card"],
-            hover_color=self._colors["card_hover"],
-            text_color=self._colors["text"],
-            corner_radius=S.BUTTON_CORNER_RADIUS,
-            command=self._toggle_theme,
-        )
-        self._theme_btn.pack(side="right")
+    def _on_refresh(self):
+        """Handle manual refresh - re-search current city."""
+        if hasattr(self._dashboard, '_city_name') and self._dashboard._city_name:
+            self.search_city(self._dashboard._city_name)
 
     # -----------------------------------------------------------------------
     # View navigation
@@ -230,7 +191,7 @@ class App(ctk.CTk):
 
     def show_view(self, view_name: str):
         """Show the requested view and hide all others."""
-        for name, view in self._views.items():
+        for _, view in self._views.items():
             view.pack_forget()
 
         # Resolve alias
@@ -264,7 +225,8 @@ class App(ctk.CTk):
         # Show loading state
         self._dashboard.show_loading()
         self.show_view("dashboard")
-        self._search_bar.set_enabled(False)
+        if hasattr(self._dashboard, '_search_bar'):
+            self._dashboard._search_bar.set_enabled(False)
 
         # Submit background task
         self._executor.submit(self._bg_fetch_weather, city_name, my_id)
@@ -290,8 +252,11 @@ class App(ctk.CTk):
         if request_id != self._request_id:
             return  # Stale response — discard
 
-        self._search_bar.set_enabled(True)
-        self._dashboard.display_weather(data)
+        # Re-enable search
+        if hasattr(self._dashboard, '_search_bar'):
+            self._dashboard._search_bar.set_enabled(True)
+
+        self._dashboard.display_weather(data, data.city, data.country)
 
         # Persist to database
         database.insert_search_history(
@@ -300,12 +265,12 @@ class App(ctk.CTk):
         from utils.weather_icons import get_description
         database.insert_weather_history(
             city_name=data.city,
-            temperature=data.temperature,
-            feels_like=data.feels_like,
-            humidity=data.humidity,
-            wind_speed=data.wind_speed,
-            pressure=data.pressure,
-            weather_condition=get_description(data.weather_code),
+            temperature=data.current.temperature,
+            feels_like=data.current.feels_like,
+            humidity=data.current.humidity,
+            wind_speed=data.current.wind_speed,
+            pressure=data.current.pressure,
+            weather_condition=get_description(data.current.weather_code),
         )
         logger.info("Weather displayed for %s", data.city)
 
@@ -314,7 +279,8 @@ class App(ctk.CTk):
         if request_id != self._request_id:
             return
 
-        self._search_bar.set_enabled(True)
+        if hasattr(self._dashboard, '_search_bar'):
+            self._dashboard._search_bar.set_enabled(True)
         self._dashboard.show_error(message)
         logger.warning("Weather fetch error: %s", message)
 
@@ -322,16 +288,18 @@ class App(ctk.CTk):
     # Favorites
     # -----------------------------------------------------------------------
 
-    def add_to_favorites(self, data):
+    def add_to_favorites(self):
         """Add currently displayed city to favorites."""
-        from database import database as db
-        inserted = db.insert_favorite_city(
-            data.city, data.country, data.latitude, data.longitude
-        )
-        if inserted:
-            logger.info("Added '%s' to favorites.", data.city)
-        else:
-            logger.info("'%s' is already in favorites.", data.city)
+        if hasattr(self._dashboard, '_weather_data') and self._dashboard._weather_data:
+            data = self._dashboard._weather_data
+            from database import database as db
+            inserted = db.insert_favorite_city(
+                data.city, data.country, data.latitude, data.longitude
+            )
+            if inserted:
+                logger.info("Added '%s' to favorites.", data.city)
+            else:
+                logger.info("'%s' is already in favorites.", data.city)
 
     # -----------------------------------------------------------------------
     # Settings application
@@ -350,13 +318,13 @@ class App(ctk.CTk):
 
         if theme_changed:
             ctk.set_appearance_mode(theme)
-            theme_btn_text = "☀️ Light" if theme == "dark" else "🌙 Dark"
-            self._theme_btn.configure(text=theme_btn_text)
             self._apply_colors_all()
 
         # Update units in relevant views
-        self._dashboard.update_units(temp_unit, wind_unit)
-        self._history.update_units(temp_unit)
+        if hasattr(self._dashboard, 'update_units'):
+            self._dashboard.update_units(temp_unit, wind_unit)
+        if hasattr(self._history, 'update_units'):
+            self._history.update_units(temp_unit)
 
     def _toggle_theme(self):
         """Toggle between dark and light themes."""
@@ -374,11 +342,21 @@ class App(ctk.CTk):
         colors = self._colors
         self.configure(fg_color=colors["bg"])
         self._sidebar.apply_colors(colors)
-        self._search_bar.apply_colors(colors)
+        if hasattr(self, '_search_bar'):
+            self._search_bar.apply_colors(colors)
         self._dashboard.apply_colors(colors)
         self._favorites.apply_colors(colors)
         self._history.apply_colors(colors)
         self._settings_view.apply_colors(colors)
+
+    # -----------------------------------------------------------------------
+    # Sidebar toggle handling
+    # -----------------------------------------------------------------------
+
+    def _on_sidebar_toggle(self, _is_expanded: bool):
+        """Handle sidebar expand/collapse - adjust layout if needed."""
+        # Grid layout handles width changes automatically
+        pass
 
     # -----------------------------------------------------------------------
     # Cleanup
@@ -386,7 +364,7 @@ class App(ctk.CTk):
 
     def on_close(self):
         """Gracefully shutdown threads and close the window."""
-        logger.info("Shutting down SkyView.")
+        logger.info("Shutting down SkyCast.")
         self._executor.shutdown(wait=False, cancel_futures=True)
         self.destroy()
 
@@ -398,4 +376,3 @@ class App(ctk.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
-
