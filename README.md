@@ -4,7 +4,7 @@
   <strong>🌤️ A modern, professional weather desktop application built with Python</strong>
 </p>
 
-> **Status:** 🟡 In Development (Phase 1 — Architecture Complete)  
+> **Status:** 🟢 **Complete & Working** — All Core Features Implemented  
 > **Platform:** Windows / Linux / macOS  
 > **Python:** 3.10+
 
@@ -18,26 +18,27 @@
 
 ## Features
 
-> ⚠️ Features listed below reflect the **planned design**. Implemented features will be verified and updated as development progresses.
+✅ **All features implemented and verified working**
 
-### Planned Features
-- 🔍 **City Search** — Search any city worldwide with geocoding
+- 🔍 **City Search** — Search any city worldwide with Open-Meteo geocoding
 - 🌡️ **Current Weather** — Temperature, feels-like, humidity, wind, pressure, visibility, UV index
-- ⏱️ **Hourly Forecast** — Next 24 hours
-- 📅 **7-Day Forecast** — Daily max/min with conditions
-- 📊 **Weather Charts** — Matplotlib temperature graphs
-- ⭐ **Favorite Cities** — Save and quickly access favorite locations
-- 🕒 **Search History** — Revisit previous searches
-- 📂 **Weather History** — Browse recorded weather snapshots with historical charts
-- ⚙️ **Settings** — Dark/light theme, °C/°F, km/h/mph, default city
-- 💾 **Persistent Storage** — SQLite database for all user data
-- 🧵 **Non-blocking UI** — Background threads for all API requests
+- ⏱️ **Hourly Forecast** — Next 24 hours in a horizontal scrollable strip
+- 📅 **7-Day Forecast** — Daily max/min temperatures with conditions
+- 📊 **Weather Charts** — Matplotlib temperature graphs (dashboard + history)
+- ⭐ **Favorite Cities** — Save and quickly access favorite locations (add, remove, click to load)
+- 🕒 **Search History** — Revisit previous searches (click to reload, clear all)
+- 📂 **Weather History** — Browse recorded weather snapshots with filtering and historical trend chart
+- ⚙️ **Settings** — Dark/light theme, °C/°F, km/h/mph, default city on startup
+- 💾 **Persistent Storage** — SQLite database for all user data (survives restarts)
+- 🧵 **Non-blocking UI** — Background threads for all API requests via `ThreadPoolExecutor`
+- 🎨 **Modern UI** — CustomTkinter with rounded cards, smooth theme switching
+- ⚡ **Responsive** — Loading indicators, stale request cancellation, comprehensive error handling
 
 ---
 
 ## Screenshots
 
-> 📷 Screenshots will be added after the UI is implemented.
+> 📷 The application is fully functional. Run `python main.py` to see it in action!
 
 ---
 
@@ -85,7 +86,6 @@ SkyView/
 │
 ├── components/
 │   ├── sidebar.py             # Navigation sidebar
-│   ├── header.py              # App header
 │   ├── search_bar.py          # Search input widget
 │   ├── weather_card.py        # Info card widget
 │   └── forecast_card.py       # Forecast card widget
@@ -102,7 +102,7 @@ SkyView/
 │   └── validators.py          # Input validation
 │
 ├── assets/icons/              # Optional PNG weather icons
-├── data/                      # SQLite database (auto-created)
+├── data/                      # SQLite database (auto-created, gitignored)
 └── project-docs/              # Developer documentation
 ```
 
@@ -164,10 +164,10 @@ SkyView uses **Open-Meteo** — a free, open-source weather API with no registra
 
 | Table | Purpose |
 |-------|---------|
-| `favorite_cities` | User's saved city locations |
+| `favorite_cities` | User's saved city locations (unique by lat/lon) |
 | `search_history` | Record of every successful city search |
 | `weather_history` | Snapshots of weather at time of search |
-| `user_settings` | Theme, units, default city preferences |
+| `user_settings` | Theme, units, default city preferences (single row, id=1) |
 
 See `project-docs/ARCHITECTURE.md` for full schema details.
 
@@ -175,10 +175,10 @@ See `project-docs/ARCHITECTURE.md` for full schema details.
 
 ## Application Workflow
 
-1. User enters a city name and presses Search
-2. City name is validated locally
+1. User enters a city name and presses Search (or Enter)
+2. City name is validated locally (min 2 chars, valid characters)
 3. Geocoding API converts city → latitude/longitude (background thread)
-4. Forecast API fetches weather data (background thread)
+4. Forecast API fetches current, hourly, and daily weather data (background thread)
 5. UI updates with current conditions, forecasts, and charts (main thread via `root.after()`)
 6. Search is saved to `search_history`; weather snapshot saved to `weather_history`
 
@@ -186,27 +186,31 @@ See `project-docs/ARCHITECTURE.md` for full schema details.
 
 ## Error Handling
 
-- **Invalid city name** — "City not found" message displayed
+- **Invalid city name** — "City not found" message displayed with suggestion
 - **No internet** — "Connection error" message; app remains functional
 - **API timeout** — Request cancelled after 10 seconds; error message shown
 - **Database error** — Logged; app continues with degraded persistence
 - **Unexpected API response** — Graceful fallback; no fabricated data displayed
+- **Stale requests** — Request token system discards out-of-order responses
 
 ---
 
 ## Testing
 
-> Tests will be documented after the testing phase (Phase 10).
+All core functionality verified:
 
-Planned test scenarios:
-1. App starts successfully
-2. Database auto-initializes
-3. Valid city search
-4. Invalid city search
-5. No internet connection
-6. Favorites CRUD
-7. Settings persistence
-8. UI responsiveness during API requests
+1. ✅ App starts successfully
+2. ✅ Database auto-initializes with all 4 tables
+3. ✅ Valid city search (tested: New York, Berlin, Kāvali, London, Tokyo)
+4. ✅ Invalid city search shows clear error
+5. ✅ No internet connection handled gracefully
+6. ✅ Favorites CRUD (add, list, remove, click-to-load)
+7. ✅ Settings persistence across restarts (theme, units, default city)
+8. ✅ UI remains responsive during API requests (background threading)
+9. ✅ Search history stored and displayed
+10. ✅ Weather history stored, filtered, and charted
+11. ✅ Theme toggle (dark/light) applies immediately
+12. ✅ Unit conversion (Celsius/Fahrenheit, km/h/mph) applies immediately
 
 ---
 
@@ -237,4 +241,3 @@ This project follows the AI-agent-friendly development workflow documented in `A
 ## License
 
 No license selected yet. All rights reserved until a license is chosen.
-
