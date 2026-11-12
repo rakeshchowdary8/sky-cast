@@ -55,9 +55,14 @@ class FavoritesView(ctk.CTkFrame):
 
         # Scrollable list
         self._list_frame = ctk.CTkScrollableFrame(
-            self, fg_color="transparent", corner_radius=0
+            self, fg_color="transparent", corner_radius=0,
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
         )
         self._list_frame.pack(fill="both", expand=True, padx=SPACE_8, pady=SPACE_2)
+
+        # Enable trackpad/mouse wheel scrolling
+        self._setup_scroll_bindings(self._list_frame)
 
         self._refresh_list()
 
@@ -129,15 +134,22 @@ class FavoritesView(ctk.CTkFrame):
         card._default_border = self.colors["card_border"]
         card._hover_fg = self.colors["card_hover"]
         card._hover_border = self.colors["primary"]
+        card._hovering = False
 
-        # Hover effect with smooth animation
+        # Hover effect with smooth animation and flicker guard
         def on_enter(_):
+            if card._hovering:
+                return
+            card._hovering = True
             animate_color_transition(card, "fg_color",
                                       card.cget("fg_color"), self.colors["card_hover"], ANIM_FAST)
             animate_color_transition(card, "border_color",
                                       card.cget("border_color"), self.colors["primary"], ANIM_FAST)
 
         def on_leave(_):
+            if not card._hovering:
+                return
+            card._hovering = False
             animate_color_transition(card, "fg_color",
                                       card.cget("fg_color"), self.colors["card"], ANIM_FAST)
             animate_color_transition(card, "border_color",
@@ -145,6 +157,8 @@ class FavoritesView(ctk.CTkFrame):
 
         card.bind("<Enter>", on_enter)
         card.bind("<Leave>", on_leave)
+
+        # Don't bind hover to buttons - let the card handle it
 
         # Main content
         content = card.content
@@ -178,10 +192,6 @@ class FavoritesView(ctk.CTkFrame):
         )
         view_btn.pack(side="left", padx=SPACE_1)
 
-        # Bind hover to card too
-        view_btn.bind("<Enter>", on_enter)
-        view_btn.bind("<Leave>", on_leave)
-
         remove_btn = Button(
             btn_frame, text="🗑️  Remove",
             variant="ghost",
@@ -195,8 +205,6 @@ class FavoritesView(ctk.CTkFrame):
             hover_color=self.colors["destructive_light"],
         )
         remove_btn.pack(side="left")
-        remove_btn.bind("<Enter>", on_enter)
-        remove_btn.bind("<Leave>", on_leave)
 
         self._favorite_cards.append(card)
 
@@ -213,6 +221,38 @@ class FavoritesView(ctk.CTkFrame):
     def on_show(self):
         """Refresh the list whenever this view is activated."""
         self._refresh_list()
+
+    def _setup_scroll_bindings(self, scroll_frame, horizontal=False):
+        """Setup improved mouse wheel/trackpad scrolling bindings for a CTkScrollableFrame."""
+        def on_mousewheel(event):
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            return "break"
+
+        def on_shift_mousewheel(event):
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            return "break"
+
+        scroll_frame.bind("<MouseWheel>", on_mousewheel)
+        scroll_frame.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+        if hasattr(scroll_frame, '_parent_canvas'):
+            scroll_frame._parent_canvas.bind("<MouseWheel>", on_mousewheel)
+            scroll_frame._parent_canvas.bind("<Shift-MouseWheel>", on_shift_mousewheel)
 
     def apply_colors(self, colors: dict):
         self.colors = colors

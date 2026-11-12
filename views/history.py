@@ -144,9 +144,14 @@ class HistoryView(ctk.CTkFrame):
 
         # Search list with cards
         self._search_list = ctk.CTkScrollableFrame(
-            self._content, fg_color="transparent", corner_radius=0
+            self._content, fg_color="transparent", corner_radius=0,
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
         )
         self._search_list.pack(fill="both", expand=True, padx=SPACE_8, pady=0)
+
+        # Enable trackpad/mouse wheel scrolling
+        self._setup_scroll_bindings(self._search_list)
 
         self._populate_search_list()
 
@@ -186,15 +191,22 @@ class HistoryView(ctk.CTkFrame):
         # Store default colors for hover
         card._default_fg = self.colors["card"]
         card._default_border = self.colors["card_border"]
+        card._hovering = False
 
-        # Hover effect with smooth animation
+        # Hover effect with smooth animation and flicker guard
         def on_enter(_):
+            if card._hovering:
+                return
+            card._hovering = True
             animate_color_transition(card, "fg_color",
                                       card.cget("fg_color"), self.colors["card_hover"], ANIM_FAST)
             animate_color_transition(card, "border_color",
                                       card.cget("border_color"), self.colors["primary"], ANIM_FAST)
 
         def on_leave(_):
+            if not card._hovering:
+                return
+            card._hovering = False
             animate_color_transition(card, "fg_color",
                                       card.cget("fg_color"), self.colors["card"], ANIM_FAST)
             animate_color_transition(card, "border_color",
@@ -230,10 +242,6 @@ class HistoryView(ctk.CTkFrame):
             command=lambda r=rec: self._re_search(r),
         )
         search_btn.pack(side="right", padx=SPACE_2)
-
-        # Bind hover to card
-        search_btn.bind("<Enter>", on_enter)
-        search_btn.bind("<Leave>", on_leave)
 
         self._search_cards.append(card)
 
@@ -310,8 +318,13 @@ class HistoryView(ctk.CTkFrame):
         # Records list
         self._weather_list = ctk.CTkScrollableFrame(
             self._content, fg_color="transparent", height=250,
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
         )
         self._weather_list.pack(fill="x", padx=SPACE_8, pady=(0, SPACE_2))
+
+        # Enable trackpad/mouse wheel scrolling
+        self._setup_scroll_bindings(self._weather_list)
 
         # Chart section
         self._chart_section = ctk.CTkFrame(self._content, fg_color="transparent")
@@ -380,15 +393,22 @@ class HistoryView(ctk.CTkFrame):
         # Store default colors for hover
         card._default_fg = self.colors["card"]
         card._default_border = self.colors["card_border"]
+        card._hovering = False
 
-        # Hover effect with smooth animation
+        # Hover effect with smooth animation and flicker guard
         def on_enter(_):
+            if card._hovering:
+                return
+            card._hovering = True
             animate_color_transition(card, "fg_color",
                                       card.cget("fg_color"), self.colors["card_hover"], ANIM_FAST)
             animate_color_transition(card, "border_color",
                                       card.cget("border_color"), self.colors["primary"], ANIM_FAST)
 
         def on_leave(_):
+            if not card._hovering:
+                return
+            card._hovering = False
             animate_color_transition(card, "fg_color",
                                       card.cget("fg_color"), self.colors["card"], ANIM_FAST)
             animate_color_transition(card, "border_color",
@@ -471,6 +491,38 @@ class HistoryView(ctk.CTkFrame):
 
     def on_show(self):
         self._switch_tab(self._active_tab)
+
+    def _setup_scroll_bindings(self, scroll_frame, horizontal=False):
+        """Setup improved mouse wheel/trackpad scrolling bindings for a CTkScrollableFrame."""
+        def on_mousewheel(event):
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            return "break"
+
+        def on_shift_mousewheel(event):
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            return "break"
+
+        scroll_frame.bind("<MouseWheel>", on_mousewheel)
+        scroll_frame.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+        if hasattr(scroll_frame, '_parent_canvas'):
+            scroll_frame._parent_canvas.bind("<MouseWheel>", on_mousewheel)
+            scroll_frame._parent_canvas.bind("<Shift-MouseWheel>", on_shift_mousewheel)
 
     def apply_colors(self, colors: dict):
         self.colors = colors

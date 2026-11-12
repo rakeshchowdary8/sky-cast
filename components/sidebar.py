@@ -170,22 +170,6 @@ class Sidebar(ctk.CTkFrame):
         )
         self._version_label.pack(side="left")
 
-        # Theme toggle button at bottom
-        self._theme_btn = ctk.CTkButton(
-            version_frame,
-            text="🌙",
-            width=36,
-            height=36,
-            font=("Segoe UI Emoji", 16),
-            fg_color="transparent",
-            text_color=self.colors["text_muted"],
-            hover_color=self.colors["card_hover"],
-            corner_radius=RADIUS_MD,
-            command=self._toggle_theme,
-        )
-        self._theme_btn.pack(side="right")
-        self._setup_theme_btn_hover()
-
         # Activate default (without animation initially)
         self._set_active("dashboard", animate=False)
 
@@ -225,37 +209,49 @@ class Sidebar(ctk.CTkFrame):
             w.bind("<Button-1>", lambda e, v=view_name: self._on_click(v))
             w.configure(cursor="hand2")
 
-        # Hover animation for the whole row
+        # Hover animation for the whole row with flicker guard
+        btn_frame._hovering = False
         def on_enter(_):
-            if view_name != self._active_view:
-                animate_color_transition(btn_frame, "fg_color",
-                                          "transparent", self.colors["card_hover"], ANIM_FAST)
-                animate_color_transition(icon_lbl, "text_color",
-                                          icon_lbl.cget("text_color"), self.colors["text"], ANIM_FAST)
-                animate_color_transition(text_lbl, "text_color",
-                                          text_lbl.cget("text_color"), self.colors["text"], ANIM_FAST)
+            if view_name == self._active_view or btn_frame._hovering:
+                return
+            btn_frame._hovering = True
+            animate_color_transition(btn_frame, "fg_color",
+                                      "transparent", self.colors["card_hover"], ANIM_FAST)
+            animate_color_transition(icon_lbl, "text_color",
+                                      icon_lbl.cget("text_color"), self.colors["text"], ANIM_FAST)
+            animate_color_transition(text_lbl, "text_color",
+                                      text_lbl.cget("text_color"), self.colors["text"], ANIM_FAST)
 
         def on_leave(_):
-            if view_name != self._active_view:
-                animate_color_transition(btn_frame, "fg_color",
-                                          btn_frame.cget("fg_color"), "transparent", ANIM_FAST)
-                animate_color_transition(icon_lbl, "text_color",
-                                          icon_lbl.cget("text_color"), self.colors["text_muted"], ANIM_FAST)
-                animate_color_transition(text_lbl, "text_color",
-                                          text_lbl.cget("text_color"), self.colors["text_muted"], ANIM_FAST)
+            if view_name == self._active_view or not btn_frame._hovering:
+                return
+            btn_frame._hovering = False
+            animate_color_transition(btn_frame, "fg_color",
+                                      btn_frame.cget("fg_color"), "transparent", ANIM_FAST)
+            animate_color_transition(icon_lbl, "text_color",
+                                      icon_lbl.cget("text_color"), self.colors["text_muted"], ANIM_FAST)
+            animate_color_transition(text_lbl, "text_color",
+                                      text_lbl.cget("text_color"), self.colors["text_muted"], ANIM_FAST)
 
         btn_frame.bind("<Enter>", on_enter)
         btn_frame.bind("<Leave>", on_leave)
 
     def _setup_toggle_hover(self):
-        """Setup hover animation for toggle button."""
+        """Setup hover animation for toggle button with flicker guard."""
+        self._toggle_btn._hovering = False
         def on_enter(_):
+            if self._toggle_btn._hovering:
+                return
+            self._toggle_btn._hovering = True
             animate_color_transition(self._toggle_btn, "fg_color",
                                       "transparent", self.colors["card_hover"], ANIM_FAST)
             animate_color_transition(self._toggle_btn, "text_color",
                                       self._toggle_btn.cget("text_color"), self.colors["text"], ANIM_FAST)
 
         def on_leave(_):
+            if not self._toggle_btn._hovering:
+                return
+            self._toggle_btn._hovering = False
             animate_color_transition(self._toggle_btn, "fg_color",
                                       self._toggle_btn.cget("fg_color"), "transparent", ANIM_FAST)
             animate_color_transition(self._toggle_btn, "text_color",
@@ -263,23 +259,6 @@ class Sidebar(ctk.CTkFrame):
 
         self._toggle_btn.bind("<Enter>", on_enter)
         self._toggle_btn.bind("<Leave>", on_leave)
-
-    def _setup_theme_btn_hover(self):
-        """Setup hover animation for theme toggle button."""
-        def on_enter(_):
-            animate_color_transition(self._theme_btn, "fg_color",
-                                      "transparent", self.colors["card_hover"], ANIM_FAST)
-            animate_color_transition(self._theme_btn, "text_color",
-                                      self._theme_btn.cget("text_color"), self.colors["text"], ANIM_FAST)
-
-        def on_leave(_):
-            animate_color_transition(self._theme_btn, "fg_color",
-                                      self._theme_btn.cget("fg_color"), "transparent", ANIM_FAST)
-            animate_color_transition(self._theme_btn, "text_color",
-                                      self._theme_btn.cget("text_color"), self.colors["text_muted"], ANIM_FAST)
-
-        self._theme_btn.bind("<Enter>", on_enter)
-        self._theme_btn.bind("<Leave>", on_leave)
 
     def _animate_entrance(self):
         """Staggered entrance animation for nav items."""
@@ -342,7 +321,7 @@ class Sidebar(ctk.CTkFrame):
         else:
             btn_frame = self._btn_frames.get(view_name)
             if btn_frame:
-                target_y = btn_frame.winfo_y() + 3
+                target_y = btn_frame.winfo_y()
                 self._indicator.place(x=0, y=target_y)
                 self._indicator.lift()
 
@@ -352,7 +331,8 @@ class Sidebar(ctk.CTkFrame):
         if not btn_frame:
             return
 
-        target_y = btn_frame.winfo_y() + 3
+        # Align indicator with the nav button frame (same height=44, no extra offset)
+        target_y = btn_frame.winfo_y()
 
         def animate_step(current_y, target_y, step=0):
             total_steps = 12
@@ -432,16 +412,6 @@ class Sidebar(ctk.CTkFrame):
             for view_name in self._btn_frames:
                 self._icon_labels[view_name].pack_configure(padx=(SPACE_4, SPACE_3))
 
-    def _toggle_theme(self):
-        """Toggle theme - delegate to main app."""
-        # This will be connected via the main app
-        if hasattr(self, '_theme_callback'):
-            self._theme_callback()
-
-    def set_theme_callback(self, callback):
-        """Set theme toggle callback."""
-        self._theme_callback = callback
-
     def apply_colors(self, colors: dict):
         """Re-apply colors after a theme change."""
         self.colors = colors
@@ -456,10 +426,6 @@ class Sidebar(ctk.CTkFrame):
 
         # Toggle button
         self._toggle_btn.configure(
-            text_color=colors["text_muted"],
-            hover_color=colors["card_hover"],
-        )
-        self._theme_btn.configure(
             text_color=colors["text_muted"],
             hover_color=colors["card_hover"],
         )
@@ -485,7 +451,6 @@ class Sidebar(ctk.CTkFrame):
 
         # Re-setup hover animations with new colors
         self._setup_toggle_hover()
-        self._setup_theme_btn_hover()
 
     # Public API
     def is_expanded(self) -> bool:

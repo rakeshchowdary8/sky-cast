@@ -243,17 +243,20 @@ class SearchBar(ctk.CTkFrame):
         self._dropdown_visible = True
 
         # Create dropdown frame with elevated styling
+        dropdown_height = min(len(suggestions) * 52 + 8, 320)
         self._suggestions_frame = ctk.CTkFrame(
             self,
             fg_color=self.colors["card"],
             corner_radius=12,
             border_width=1,
             border_color=self.colors["card_border"],
+            width=520,
+            height=dropdown_height,
         )
 
         # Position below entry container
         self._suggestions_frame.place(
-            x=0, y=64, width=520, height=min(len(suggestions) * 52 + 8, 320)
+            x=0, y=64
         )
         self._suggestions_frame.lift()
 
@@ -279,9 +282,17 @@ class SearchBar(ctk.CTkFrame):
         original_y = 64
         start_y = original_y - 10
 
+        # Check if frame still exists
+        if not hasattr(self, '_suggestions_frame') or not self._suggestions_frame.winfo_exists():
+            return
+
         self._suggestions_frame.place_configure(y=start_y)
 
         def animate_step(step: int, total: int = 10):
+            # Check if frame still exists before continuing
+            if not hasattr(self, '_suggestions_frame') or not self._suggestions_frame.winfo_exists():
+                return
+
             if step > total:
                 self._suggestions_frame.place_configure(y=original_y)
                 return
@@ -406,6 +417,10 @@ class SearchBar(ctk.CTkFrame):
                     self._container.cget("border_color"),
                     self.colors["card_border"], ANIM_FAST
                 )
+
+    def show_loading(self, show: bool):
+        """Public method to show/hide loading state."""
+        self._show_loading(show)
 
     # -------------------------------------------------------------------------
     # Public API

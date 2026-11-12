@@ -262,10 +262,10 @@ DARK = {
     "chart_fill_secondary": "#0e4d5e",
     "chart_text": "#94a3b8",
 
-    # Scrollbar
-    "scrollbar": "#1e293b",
-    "scrollbar_hover": "#334155",
-    "scrollbar_thumb": "#334155",
+    # Scrollbar - more visible with better contrast
+    "scrollbar": "#334155",      # slate-700 (was slate-800)
+    "scrollbar_hover": "#475569", # slate-600 (was slate-700)
+    "scrollbar_thumb": "#475569", # slate-600
 
     # Divider
     "divider": "#1e293b",
@@ -382,10 +382,10 @@ LIGHT = {
     "chart_fill_secondary": "#cffafe",
     "chart_text": "#475569",
 
-    # Scrollbar
-    "scrollbar": "#e2e8f0",
-    "scrollbar_hover": "#cbd5e1",
-    "scrollbar_thumb": "#cbd5e1",
+    # Scrollbar - more visible with better contrast
+    "scrollbar": "#cbd5e1",      # slate-300 (was slate-200)
+    "scrollbar_hover": "#94a3b8", # slate-400 (was slate-300)
+    "scrollbar_thumb": "#94a3b8", # slate-400
 
     # Divider
     "divider": "#e2e8f0",

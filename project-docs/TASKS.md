@@ -239,6 +239,9 @@
 - [x] Empty state transition reliability (simplified _hide_empty_state())
 - [x] **SearchBar integration** — Added SearchBar to dashboard header, fixed broken `_search_bar` references in main.py
 - [x] **Missing CARD_CORNER_RADIUS import** — Fixed import in search_bar.py
+- [x] **SearchBar dropdown width/height** — Fixed CTkFrame place() requiring dimensions in constructor
+- [x] **SearchBar animation guard** — Added winfo_exists() check before animating to prevent AttributeError
+- [x] **Section heading grouping** — Wrapped all dashboard section headers with their content containers for visual grouping (Detail Cards, Hourly Forecast, Daily Forecast, Sun & Atmosphere, Chart)
 
 ---
 

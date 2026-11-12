@@ -51,13 +51,14 @@ class DashboardView(ctk.CTkFrame):
     """
 
     def __init__(self, parent, colors: dict, settings: dict,
-                 on_city_search, on_refresh, on_add_favorite, **kwargs):
+                 on_city_search, on_refresh, on_add_favorite, on_toggle_theme=None, **kwargs):
         super().__init__(parent, fg_color=colors["bg"], corner_radius=0, **kwargs)
         self.colors = colors
         self.settings = settings
         self.on_city_search = on_city_search
         self.on_refresh = on_refresh
         self.on_add_favorite = on_add_favorite
+        self.on_toggle_theme = on_toggle_theme
 
         # Weather data
         self._weather_data = None
@@ -83,9 +84,8 @@ class DashboardView(ctk.CTkFrame):
         )
         self._scroll.pack(fill="both", expand=True)
 
-        # Enable trackpad/mouse wheel scrolling on Windows
-        self._scroll.bind("<MouseWheel>", lambda e: self._scroll._parent_canvas.yview_scroll(-int(e.delta / 120), "units"))
-        self._scroll.bind("<Shift-MouseWheel>", lambda e: self._scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+        # Enable trackpad/mouse wheel scrolling on Windows (improved for trackpads)
+        self._setup_scroll_bindings(self._scroll)
 
         # Content frame
         content = ctk.CTkFrame(self._scroll, fg_color="transparent")
@@ -131,6 +131,16 @@ class DashboardView(ctk.CTkFrame):
         # ============================================================
         self._build_chart_section(content)
 
+        # Store section frames for animation
+        self._section_frames = [
+            self._hero_frame,
+            self._detail_section,
+            self._hourly_section,
+            self._daily_section,
+            self._sun_atmos_section,
+            self._chart_section,
+        ]
+
         # Initially show empty state
         self._show_empty_state()
 
@@ -171,19 +181,21 @@ class DashboardView(ctk.CTkFrame):
         )
         self._search_bar.grid(row=0, column=1, sticky="ew", padx=SPACE_8)
 
-        # Right side - refresh and favorite buttons using new Button component
+        # Right side - theme toggle and favorite buttons using new Button component
         right = ctk.CTkFrame(header, fg_color="transparent")
         right.grid(row=0, column=2, sticky="e")
 
-        self._refresh_btn = Button(
+        # Theme toggle button in header (replaces sidebar theme toggle)
+        theme_icon = "☀️" if self.settings.get("theme", "dark") == "dark" else "🌙"
+        self._theme_btn = Button(
             right,
-            text="↻ Refresh",
-            variant="secondary",
-            size="default",
+            text=theme_icon,
+            variant="ghost",
+            size="icon",
             colors=self.colors,
-            command=self.on_refresh,
+            command=self.on_toggle_theme,
         )
-        self._refresh_btn.pack(side="right", padx=(SPACE_2, 0))
+        self._theme_btn.pack(side="right", padx=(SPACE_2, 0))
 
         self._favorite_btn = Button(
             right,
@@ -258,20 +270,24 @@ class DashboardView(ctk.CTkFrame):
     # Detail Cards (6 metrics)
     # -------------------------------------------------------------------------
     def _build_detail_cards(self, parent):
-        # Section title with CardHeader pattern
-        title_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        title_frame.pack(fill="x", pady=(0, SPACE_4))
+        # Section container - groups header + cards together
+        self._detail_section = ctk.CTkFrame(parent, fg_color="transparent")
+        self._detail_section.pack(fill="x", pady=(0, SPACE_8))
+
+        # Section header
+        header = ctk.CTkFrame(self._detail_section, fg_color="transparent")
+        header.pack(fill="x", pady=(0, SPACE_4))
 
         ctk.CTkLabel(
-            title_frame,
+            header,
             text="Weather Details",
             font=FONT_TITLE,
             text_color=self.colors["text"],
         ).pack(side="left")
 
         # Cards container - grid layout
-        self._detail_container = ctk.CTkFrame(parent, fg_color="transparent")
-        self._detail_container.pack(fill="x", pady=(0, SPACE_8))
+        self._detail_container = ctk.CTkFrame(self._detail_section, fg_color="transparent")
+        self._detail_container.pack(fill="x")
 
         # Configure 3 columns
         for i in range(3):
@@ -307,8 +323,12 @@ class DashboardView(ctk.CTkFrame):
     # Hourly Forecast Section
     # -------------------------------------------------------------------------
     def _build_hourly_section(self, parent):
+        # Section container - groups header + cards together
+        self._hourly_section = ctk.CTkFrame(parent, fg_color="transparent")
+        self._hourly_section.pack(fill="x", pady=(0, SPACE_8))
+
         # Section header
-        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header = ctk.CTkFrame(self._hourly_section, fg_color="transparent")
         header.pack(fill="x", pady=(0, SPACE_4))
 
         ctk.CTkLabel(
@@ -327,18 +347,17 @@ class DashboardView(ctk.CTkFrame):
 
         # Horizontal scrollable container
         self._hourly_scroll = ctk.CTkScrollableFrame(
-            parent,
+            self._hourly_section,
             fg_color="transparent",
             orientation="horizontal",
             height=170,
             scrollbar_button_color=self.colors["scrollbar"],
             scrollbar_button_hover_color=self.colors["scrollbar_hover"],
         )
-        self._hourly_scroll.pack(fill="x", pady=(0, SPACE_8))
+        self._hourly_scroll.pack(fill="x")
 
-        # Enable trackpad/mouse wheel horizontal scrolling
-        self._hourly_scroll.bind("<MouseWheel>", lambda e: self._hourly_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
-        self._hourly_scroll.bind("<Shift-MouseWheel>", lambda e: self._hourly_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+        # Enable trackpad/mouse wheel horizontal scrolling (improved)
+        self._setup_scroll_bindings(self._hourly_scroll, horizontal=True)
 
         # Inner frame for cards
         self._hourly_inner = ctk.CTkFrame(self._hourly_scroll, fg_color="transparent")
@@ -348,8 +367,12 @@ class DashboardView(ctk.CTkFrame):
     # Daily Forecast Section
     # -------------------------------------------------------------------------
     def _build_daily_section(self, parent):
+        # Section container - groups header + cards together
+        self._daily_section = ctk.CTkFrame(parent, fg_color="transparent")
+        self._daily_section.pack(fill="x", pady=(0, SPACE_8))
+
         # Section header
-        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header = ctk.CTkFrame(self._daily_section, fg_color="transparent")
         header.pack(fill="x", pady=(0, SPACE_4))
 
         ctk.CTkLabel(
@@ -361,18 +384,17 @@ class DashboardView(ctk.CTkFrame):
 
         # Cards container (horizontal scroll)
         self._daily_scroll = ctk.CTkScrollableFrame(
-            parent,
+            self._daily_section,
             fg_color="transparent",
             orientation="horizontal",
             height=210,
             scrollbar_button_color=self.colors["scrollbar"],
             scrollbar_button_hover_color=self.colors["scrollbar_hover"],
         )
-        self._daily_scroll.pack(fill="x", pady=(0, SPACE_8))
+        self._daily_scroll.pack(fill="x")
 
-        # Enable trackpad/mouse wheel horizontal scrolling
-        self._daily_scroll.bind("<MouseWheel>", lambda e: self._daily_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
-        self._daily_scroll.bind("<Shift-MouseWheel>", lambda e: self._daily_scroll._parent_canvas.xview_scroll(-int(e.delta / 120), "units"))
+        # Enable trackpad/mouse wheel horizontal scrolling (improved)
+        self._setup_scroll_bindings(self._daily_scroll, horizontal=True)
 
         self._daily_inner = ctk.CTkFrame(self._daily_scroll, fg_color="transparent")
         self._daily_inner.pack(fill="both", expand=True)
@@ -381,8 +403,12 @@ class DashboardView(ctk.CTkFrame):
     # Sunrise/Sunset & Atmospheric
     # -------------------------------------------------------------------------
     def _build_sun_atmospheric(self, parent):
+        # Section container - groups header + cards together
+        self._sun_atmos_section = ctk.CTkFrame(parent, fg_color="transparent")
+        self._sun_atmos_section.pack(fill="x", pady=(0, SPACE_8))
+
         # Section header
-        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header = ctk.CTkFrame(self._sun_atmos_section, fg_color="transparent")
         header.pack(fill="x", pady=(0, SPACE_4))
 
         ctk.CTkLabel(
@@ -393,8 +419,8 @@ class DashboardView(ctk.CTkFrame):
         ).pack(side="left")
 
         # Container for two cards side by side using Card components
-        self._sun_atmos_container = ctk.CTkFrame(parent, fg_color="transparent")
-        self._sun_atmos_container.pack(fill="x", pady=(0, SPACE_8))
+        self._sun_atmos_container = ctk.CTkFrame(self._sun_atmos_section, fg_color="transparent")
+        self._sun_atmos_container.pack(fill="x")
         self._sun_atmos_container.grid_columnconfigure(0, weight=1)
         self._sun_atmos_container.grid_columnconfigure(1, weight=1)
 
@@ -533,8 +559,12 @@ class DashboardView(ctk.CTkFrame):
     # Chart Section
     # -------------------------------------------------------------------------
     def _build_chart_section(self, parent):
+        # Section container - groups header + chart together
+        self._chart_section = ctk.CTkFrame(parent, fg_color="transparent")
+        self._chart_section.pack(fill="x", pady=(0, SPACE_8))
+
         # Section header
-        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header = ctk.CTkFrame(self._chart_section, fg_color="transparent")
         header.pack(fill="x", pady=(0, SPACE_4))
 
         ctk.CTkLabel(
@@ -546,12 +576,12 @@ class DashboardView(ctk.CTkFrame):
 
         # Chart container using Card
         self._chart_frame = Card(
-            parent,
+            self._chart_section,
             variant="default",
             padding=SPACE_4,
             colors=self.colors,
         )
-        self._chart_frame.pack(fill="x", pady=(0, SPACE_8))
+        self._chart_frame.pack(fill="x")
         self._chart_frame.configure(height=300)
         self._chart_frame.pack_propagate(False)
 
@@ -569,11 +599,11 @@ class DashboardView(ctk.CTkFrame):
     def _show_empty_state(self):
         """Show empty state when no weather data loaded."""
         self._hero_frame.pack_forget()
-        self._detail_container.pack_forget()
-        self._hourly_scroll.pack_forget()
-        self._daily_scroll.pack_forget()
-        self._sun_atmos_container.pack_forget()
-        self._chart_frame.pack_forget()
+        self._detail_section.pack_forget()
+        self._hourly_section.pack_forget()
+        self._daily_section.pack_forget()
+        self._sun_atmos_section.pack_forget()
+        self._chart_section.pack_forget()
 
         # Show empty state in hero area using Card
         self._empty_frame = Card(
@@ -622,24 +652,70 @@ class DashboardView(ctk.CTkFrame):
 
         # All sections were created in _build() - just repack them in order
         self._hero_frame.pack(fill="x", pady=(0, SPACE_8))
-        self._detail_container.pack(fill="x", pady=(0, SPACE_8))
-        self._hourly_scroll.pack(fill="x", pady=(0, SPACE_8))
-        self._daily_scroll.pack(fill="x", pady=(0, SPACE_8))
-        self._sun_atmos_container.pack(fill="x", pady=(0, SPACE_8))
-        self._chart_frame.pack(fill="x", pady=(0, SPACE_8))
+        self._detail_section.pack(fill="x", pady=(0, SPACE_8))
+        self._hourly_section.pack(fill="x", pady=(0, SPACE_8))
+        self._daily_section.pack(fill="x", pady=(0, SPACE_8))
+        self._sun_atmos_section.pack(fill="x", pady=(0, SPACE_8))
+        self._chart_section.pack(fill="x", pady=(0, SPACE_8))
 
         # Trigger staggered entrance animations for sections
         self._animate_sections_entrance()
+
+    def _setup_scroll_bindings(self, scroll_frame, horizontal=False):
+        """Setup improved mouse wheel/trackpad scrolling bindings for a CTkScrollableFrame.
+
+        Handles both regular mouse wheel and trackpad two-finger scrolling on Windows.
+        """
+        def on_mousewheel(event):
+            # Windows trackpad sends larger delta values, normalize to units
+            # Standard mouse wheel delta is 120 per notch
+            # Trackpad can send varying values, so we normalize
+            delta = event.delta
+            if delta == 0:
+                return
+
+            # Normalize delta: trackpad often sends values like 1000+ for fast scroll
+            # We'll use a factor to make it feel natural
+            units = -int(delta / 120)
+            # Clamp to reasonable range for trackpad
+            units = max(-5, min(5, units))
+
+            if horizontal:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            return "break"  # Prevent event propagation
+
+        def on_shift_mousewheel(event):
+            # Shift+MouseWheel for horizontal scrolling
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            return "break"
+
+        # Bind both regular and shift-modified wheel events
+        scroll_frame.bind("<MouseWheel>", on_mousewheel)
+        scroll_frame.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+        # Also bind to the inner canvas for better coverage
+        if hasattr(scroll_frame, '_parent_canvas'):
+            scroll_frame._parent_canvas.bind("<MouseWheel>", on_mousewheel)
+            scroll_frame._parent_canvas.bind("<Shift-MouseWheel>", on_shift_mousewheel)
 
     def _animate_sections_entrance(self):
         """Animate dashboard sections with staggered entrance."""
         sections = [
             self._hero_frame,
-            self._detail_container,
-            self._hourly_scroll,
-            self._daily_scroll,
-            self._sun_atmos_container,
-            self._chart_frame,
+            self._detail_section,
+            self._hourly_section,
+            self._daily_section,
+            self._sun_atmos_section,
+            self._chart_section,
         ]
 
         stagger_animate_children(
@@ -914,16 +990,16 @@ class DashboardView(ctk.CTkFrame):
 
     def show_loading(self):
         """Show loading state."""
-        self._refresh_btn.set_loading(True)
+        if self._search_bar:
+            self._search_bar.set_enabled(False)
+            self._search_bar.show_loading(True)
 
     def show_error(self, message: str):
         """Show error state."""
-        self._refresh_btn.set_loading(False)
+        if self._search_bar:
+            self._search_bar.set_enabled(True)
+            self._search_bar.show_loading(False)
         # Could show error in a toast or status area
-
-    def set_refresh_state(self, loading: bool):
-        """Set refresh button loading state."""
-        self._refresh_btn.set_loading(loading)
 
     def _on_add_favorite(self):
         """Handle add to favorites click."""
@@ -942,8 +1018,12 @@ class DashboardView(ctk.CTkFrame):
         if self._search_bar:
             self._search_bar.apply_colors(colors)
 
-        # Update buttons
-        self._refresh_btn.apply_colors(colors)
+        # Update buttons (theme toggle and favorite)
+        if self._theme_btn:
+            self._theme_btn.apply_colors(colors)
+            # Update theme icon
+            theme_icon = "☀️" if self.settings.get("theme", "dark") == "dark" else "🌙"
+            self._theme_btn.configure(text=theme_icon)
         self._favorite_btn.apply_colors(colors)
 
         # Update hero card

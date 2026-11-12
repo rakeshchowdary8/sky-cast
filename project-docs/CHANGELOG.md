@@ -117,6 +117,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **apply_colors() bug** — Fixed color resolution logic (get_button_config already returns resolved colors)
 - **CTkSegmentedButton bind issue** — Removed unsupported bind calls for hover animations
 - **METRIC_ACCENTS access** — Fixed to access dict values properly (.main, .light, .text)
+- **SearchBar dropdown width/height** — Fixed CTkFrame place() requiring dimensions in constructor
+- **SearchBar animation guard** — Added winfo_exists() check before animating to prevent AttributeError
+- **Section heading grouping** — Wrapped all dashboard section headers with their content containers for visual grouping (Detail Cards, Hourly Forecast, Daily Forecast, Sun & Atmosphere, Chart) — headings now visually belong to their sections
 
 ---
 

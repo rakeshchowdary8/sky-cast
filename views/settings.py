@@ -50,8 +50,15 @@ class SettingsView(ctk.CTkFrame):
         self._build()
 
     def _build(self):
-        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        scroll = ctk.CTkScrollableFrame(
+            self, fg_color="transparent",
+            scrollbar_button_color=self.colors["scrollbar"],
+            scrollbar_button_hover_color=self.colors["scrollbar_hover"],
+        )
         scroll.pack(fill="both", expand=True, padx=SPACE_8, pady=SPACE_6)
+
+        # Enable trackpad/mouse wheel scrolling
+        self._setup_scroll_bindings(scroll)
 
         # Header
         header = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -317,6 +324,38 @@ class SettingsView(ctk.CTkFrame):
         if city:
             self._default_city_entry.insert(0, city)
         self._status_label.configure(text="")
+
+    def _setup_scroll_bindings(self, scroll_frame, horizontal=False):
+        """Setup improved mouse wheel/trackpad scrolling bindings for a CTkScrollableFrame."""
+        def on_mousewheel(event):
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            return "break"
+
+        def on_shift_mousewheel(event):
+            delta = event.delta
+            if delta == 0:
+                return
+            units = -int(delta / 120)
+            units = max(-5, min(5, units))
+            if horizontal:
+                scroll_frame._parent_canvas.yview_scroll(units, "units")
+            else:
+                scroll_frame._parent_canvas.xview_scroll(units, "units")
+            return "break"
+
+        scroll_frame.bind("<MouseWheel>", on_mousewheel)
+        scroll_frame.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+        if hasattr(scroll_frame, '_parent_canvas'):
+            scroll_frame._parent_canvas.bind("<MouseWheel>", on_mousewheel)
+            scroll_frame._parent_canvas.bind("<Shift-MouseWheel>", on_shift_mousewheel)
 
     def apply_colors(self, colors: dict):
         self.colors = colors

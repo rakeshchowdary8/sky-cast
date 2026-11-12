@@ -157,6 +157,7 @@ class App(ctk.CTk):
             on_city_search=self.search_city,
             on_refresh=self._on_refresh,
             on_add_favorite=self.add_to_favorites,
+            on_toggle_theme=self._toggle_theme,
         )
         self._favorites = FavoritesView(self._content, app=self, colors=self._colors)
         self._history = HistoryView(

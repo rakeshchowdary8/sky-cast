@@ -145,18 +145,16 @@ class DetailCard(ctk.CTkFrame):
 
     def _bind_events(self):
         """Bind hover and click events to card and all children."""
-        widgets = [self, self._accent_bar]
-        for w in self.winfo_children():
-            widgets.append(w)
-            for c in w.winfo_children():
-                widgets.append(c)
-
-        for w in widgets:
-            w.bind("<Enter>", self._on_enter)
-            w.bind("<Leave>", self._on_leave)
+        self._hovering = False
+        # Bind only to the card itself, not children, to avoid flicker
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
 
     def _on_enter(self, _event):
         """Hover: elevate card, highlight border, brighten accent bar."""
+        if self._hovering:
+            return
+        self._hovering = True
         self.configure(
             border_color=self.accent_color,
             fg_color=self.colors["card_hover"],
@@ -165,6 +163,9 @@ class DetailCard(ctk.CTkFrame):
 
     def _on_leave(self, _event):
         """Leave: restore default state."""
+        if not self._hovering:
+            return
+        self._hovering = False
         self.configure(
             border_color=self.colors["card_border"],
             fg_color=self.colors["card"],
@@ -308,23 +309,24 @@ class DetailCardCompact(ctk.CTkFrame):
         self._bind_events()
 
     def _bind_events(self):
-        widgets = [self, self._accent_bar]
-        for w in self.winfo_children():
-            widgets.append(w)
-            for c in w.winfo_children():
-                widgets.append(c)
-
-        for w in widgets:
-            w.bind("<Enter>", self._on_enter)
-            w.bind("<Leave>", self._on_leave)
+        self._hovering = False
+        # Bind only to the card itself, not children, to avoid flicker
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
 
     def _on_enter(self, _event):
+        if self._hovering:
+            return
+        self._hovering = True
         self.configure(
             border_color=self.accent_color,
             fg_color=self.colors["card_hover"],
         )
 
     def _on_leave(self, _event):
+        if not self._hovering:
+            return
+        self._hovering = False
         self.configure(
             border_color=self.colors["card_border"],
             fg_color=self.colors["card"],

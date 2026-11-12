@@ -157,25 +157,24 @@ class HourlyCard(ctk.CTkFrame):
 
     def _bind_hover_events(self):
         """Bind hover events with smooth color transitions."""
+        self._hovering = False
         def on_enter(_):
-            if self._animating_hover or self.is_current:
+            if self._hovering or self.is_current:
                 return
-            self._animating_hover = True
+            self._hovering = True
             animate_color_transition(self, "border_color",
                                       self.cget("border_color"), self.colors["primary"], ANIM_FAST)
             animate_color_transition(self, "fg_color",
                                       self.cget("fg_color"), self.colors["card_hover"], ANIM_FAST)
-            self._animating_hover = False
 
         def on_leave(_):
-            if self._animating_hover or self.is_current:
+            if not self._hovering or self.is_current:
                 return
-            self._animating_hover = True
+            self._hovering = False
             animate_color_transition(self, "border_color",
                                       self.cget("border_color"), self.default_border, ANIM_FAST)
             animate_color_transition(self, "fg_color",
                                       self.cget("fg_color"), self.colors["card"], ANIM_FAST)
-            self._animating_hover = False
 
         self.bind("<Enter>", on_enter)
         self.bind("<Leave>", on_leave)
@@ -446,25 +445,24 @@ class DailyCard(ctk.CTkFrame):
 
     def _bind_hover_events(self):
         """Bind hover events with smooth color transitions."""
+        self._hovering = False
         def on_enter(_):
-            if self._animating_hover or self.is_today:
+            if self._hovering or self.is_today:
                 return
-            self._animating_hover = True
+            self._hovering = True
             animate_color_transition(self, "border_color",
                                       self.cget("border_color"), self.colors["primary"], ANIM_FAST)
             animate_color_transition(self, "fg_color",
                                       self.cget("fg_color"), self.colors["card_hover"], ANIM_FAST)
-            self._animating_hover = False
 
         def on_leave(_):
-            if self._animating_hover or self.is_today:
+            if not self._hovering or self.is_today:
                 return
-            self._animating_hover = True
+            self._hovering = False
             animate_color_transition(self, "border_color",
                                       self.cget("border_color"), self.default_border, ANIM_FAST)
             animate_color_transition(self, "fg_color",
                                       self.cget("fg_color"), self.colors["card"], ANIM_FAST)
-            self._animating_hover = False
 
         self.bind("<Enter>", on_enter)
         self.bind("<Leave>", on_leave)
