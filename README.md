@@ -1,4 +1,4 @@
-# SkyView – Real-Time Weather Desktop Application
+# SkyCast – Real-Time Weather Desktop Application
 
 <p align="center">
   <strong>🌤️ A modern, professional weather desktop application built with Python</strong>
@@ -12,7 +12,7 @@
 
 ## Overview
 
-**SkyView** is a native Python desktop weather application that displays real-time weather information for any city in the world. It features a modern dark-themed interface, live weather data from the Open-Meteo API (no API key required), SQLite-backed favorites and history, Matplotlib charts, and full unit/theme customization.
+**SkyCast** is a native Python desktop weather application that displays real-time weather information for any city in the world. It features a modern dark-themed interface, live weather data from the Open-Meteo API (no API key required), SQLite-backed favorites and history, Matplotlib charts, and full unit/theme customization.
 
 ---
 
@@ -44,8 +44,8 @@
 - Hover effects on each card
 
 ### 📊 Weather Charts
-- **Dashboard**: Temperature trend for next 24 hours (Matplotlib)
-- **History**: Historical temperature trend with gradient fill
+- **Dashboard:** Temperature trend for next 24 hours (Matplotlib)
+- **History:** Historical temperature trend with gradient fill
 - Theme-aware colors (dark/light)
 - Smooth rendering embedded in Tkinter
 
@@ -69,10 +69,10 @@
 - Detailed metric display (temp, humidity, wind, condition)
 
 ### ⚙️ Settings
-- **Theme**: Dark/Light with instant preview
-- **Temperature**: °C / °F with unit symbols
-- **Wind Speed**: km/h / mph
-- **Default City**: Auto-load on startup
+- **Theme:** Dark/Light with instant preview
+- **Temperature:** °C / °F with unit symbols
+- **Wind Speed:** km/h / mph
+- **Default City:** Auto-load on startup
 - All settings persist in SQLite across restarts
 
 ### 💾 Persistent Storage
@@ -105,7 +105,7 @@
 ## Technology Stack
 
 | Component | Technology |
-|-----------|-----------|
+|---|---|
 | Language | Python 3.10+ |
 | GUI | Tkinter + CustomTkinter |
 | Weather API | Open-Meteo (free, no key) |
@@ -120,8 +120,8 @@
 
 ## Project Structure
 
-```
-SkyView/
+```text
+SkyCast/
 ├── main.py                    # Application entry point
 ├── requirements.txt           # Python dependencies
 ├── AGENTS.md                  # AI agent instruction manual
@@ -171,59 +171,145 @@ SkyView/
 ## Installation
 
 ### Prerequisites
+
 - Python 3.10 or higher
 - pip
+- Git (to clone the repository)
 
 ### 1. Clone the Repository
+
 ```bash
-git clone https://github.com/yourusername/skyview-weather-app.git
-cd skyview-weather-app
+git clone https://github.com/yourusername/skycast-weather-app.git
+cd skycast-weather-app
 ```
+
+Replace `yourusername` with your actual GitHub username.
 
 ### 2. Create a Virtual Environment
 
+A virtual environment keeps project dependencies isolated from other Python projects.
+
 **Windows:**
+
 ```cmd
 python -m venv venv
 venv\Scripts\activate
 ```
 
 **Linux / macOS:**
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
 ### 3. Install Dependencies
+
+Install all required Python packages:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Run the Application
+### 4. Verify Installation
+
+Check that Python and pip are available:
+
+```bash
+python --version
+pip --version
+```
+
+---
+
+## How to Run the Application
+
+After completing the installation steps, follow these instructions to launch SkyCast.
+
+### Windows
+
+1. Open Command Prompt or PowerShell.
+2. Navigate to the project directory:
+
+```cmd
+cd skycast-weather-app
+```
+
+3. Activate the virtual environment:
+
+```cmd
+venv\Scripts\activate
+```
+
+4. Start the application:
+
+```cmd
+python main.py
+```
+
+### Linux / macOS
+
+1. Open the terminal.
+2. Navigate to the project directory:
+
+```bash
+cd skycast-weather-app
+```
+
+3. Activate the virtual environment:
+
+```bash
+source venv/bin/activate
+```
+
+4. Start the application:
+
+```bash
+python3 main.py
+```
+
+### Using VS Code
+
+You can also run SkyCast directly through Visual Studio Code:
+
+1. Open the SkyCast project folder in VS Code.
+2. Open the integrated terminal using **Ctrl + `**.
+3. Activate the virtual environment.
+4. Run the following command:
+
 ```bash
 python main.py
 ```
 
-The SQLite database (`data/skyview.db`) is created automatically on first launch.
+### First Launch
+
+- The application window will open automatically.
+- The SQLite database (`data/skycast.db`) will be created automatically if it does not exist.
+- The application loads the configured default city, if available.
+- An active internet connection is required to retrieve weather information.
+
+**Note:** Keep the virtual environment activated whenever you run the application from the terminal. Close the desktop window to exit SkyCast.
 
 ---
 
 ## API Information
 
-SkyView uses **Open-Meteo** — a free, open-source weather API with no registration or API key required.
+SkyCast uses **Open-Meteo**, a free and open-source weather API that does not require registration or an API key.
 
 - **Website:** https://open-meteo.com/
-- **Geocoding:** `https://geocoding-api.open-meteo.com/v1/search`
-- **Forecast:** `https://api.open-meteo.com/v1/forecast`
+- **Geocoding API:** `https://geocoding-api.open-meteo.com/v1/search`
+- **Forecast API:** `https://api.open-meteo.com/v1/forecast`
 - **Data:** Current weather, hourly (168h), daily (7 days)
-- **Weather codes:** WMO standard codes
+- **Weather Codes:** WMO standard codes
 
 ---
 
 ## Database Schema
 
+SkyCast uses SQLite for persistent local storage. The database is automatically initialized when the application starts.
+
 | Table | Purpose |
-|-------|---------|
+|---|---|
 | `favorite_cities` | User's saved city locations (unique by lat/lon) |
 | `search_history` | Record of every successful city search |
 | `weather_history` | Snapshots of weather at time of search |
@@ -235,60 +321,62 @@ See `project-docs/ARCHITECTURE.md` for full schema details.
 
 ## Application Workflow
 
-1. User enters a city name and presses Search (or Enter)
-2. City name is validated locally (min 2 chars, valid characters)
-3. **Autocomplete**: Suggestions appear as you type (debounced)
-4. Geocoding API converts city → latitude/longitude (background thread)
-5. Forecast API fetches current, hourly, and daily weather data (background thread)
-6. UI updates with current conditions, forecasts, and charts (main thread via `root.after()`)
-7. Search is saved to `search_history`; weather snapshot saved to `weather_history`
+1. User enters a city name and presses Search (or Enter).
+2. City name is validated locally (minimum 2 characters, valid characters).
+3. **Autocomplete:** Suggestions appear as the user types, with a debounce mechanism.
+4. Geocoding API converts the city name into latitude and longitude in a background thread.
+5. Forecast API fetches current, hourly, and daily weather data in a background thread.
+6. UI updates with current conditions, forecasts, and charts on the main thread using `root.after()`.
+7. Successful searches are saved to `search_history`, and weather snapshots are stored in `weather_history`.
 
 ---
 
 ## Error Handling
 
-- **Invalid city name** — "City not found" message displayed with suggestion
-- **No internet** — "Connection error" message; app remains functional
-- **API timeout** — Request cancelled after 10 seconds; error message shown
-- **Database error** — Logged; app continues with degraded persistence
-- **Unexpected API response** — Graceful fallback; no fabricated data displayed
-- **Stale requests** — Request token system discards out-of-order responses
+- **Invalid city name:** "City not found" message displayed with a suggestion.
+- **No internet:** "Connection error" message; app remains functional.
+- **API timeout:** Request times out after 10 seconds; error message shown.
+- **Database error:** Error logged; app continues with degraded persistence.
+- **Unexpected API response:** Graceful fallback; no fabricated data displayed.
+- **Stale requests:** Request token system discards out-of-order responses.
 
 ---
 
 ## Testing
 
-All core functionality verified:
+All core functionality has been verified:
 
-1. ✅ App starts successfully
-2. ✅ Database auto-initializes with all 4 tables
-3. ✅ Valid city search (tested: New York, Berlin, Kāvali, London, Tokyo)
-4. ✅ **Search autocomplete** (type "New" → Newark, New York, New Delhi...)
-5. ✅ **Keyboard navigation** in suggestions (↑/↓/Enter/Escape)
-6. ✅ Invalid city search shows clear error
-7. ✅ No internet connection handled gracefully
-8. ✅ Favorites CRUD (add, list, remove, click-to-load)
-9. ✅ Settings persistence across restarts (theme, units, default city)
-10. ✅ UI remains responsive during API requests (background threading)
-11. ✅ Search history stored and displayed
-12. ✅ Weather history stored, filtered, and charted
-13. ✅ Theme toggle (dark/light) applies immediately
-14. ✅ Unit conversion (Celsius/Fahrenheit, km/h/mph) applies immediately
-15. ✅ **Hover effects** on cards, buttons, sidebar items
-16. ✅ **Modern charts** with gradient fills and clean axes
+1. ✅ App starts successfully.
+2. ✅ Database auto-initializes with all 4 tables.
+3. ✅ Valid city search (tested: New York, Berlin, Kāvali, London, Tokyo).
+4. ✅ **Search autocomplete** (type "New" → Newark, New York, New Delhi...).
+5. ✅ **Keyboard navigation** in suggestions (↑/↓/Enter/Escape).
+6. ✅ Invalid city search shows a clear error.
+7. ✅ No internet connection handled gracefully.
+8. ✅ Favorites CRUD (add, list, remove, click-to-load).
+9. ✅ Settings persistence across restarts (theme, units, default city).
+10. ✅ UI remains responsive during API requests (background threading).
+11. ✅ Search history stored and displayed.
+12. ✅ Weather history stored, filtered, and charted.
+13. ✅ Theme toggle (dark/light) applies immediately.
+14. ✅ Unit conversion (Celsius/Fahrenheit, km/h/mph) applies immediately.
+15. ✅ **Hover effects** on cards, buttons, and sidebar items.
+16. ✅ **Modern charts** with gradient fills and clean axes.
 
 ---
 
 ## Future Improvements
 
-- Weather alerts and severe weather warnings
-- Multiple location dashboard
-- Animated weather backgrounds
-- Export weather data to CSV
-- PyInstaller packaging for distribution
-- Precipitation probability charts
-- Wind direction compass widget
-- Geolocation-based automatic city detection
+Potential enhancements for future versions:
+
+- Weather alerts and severe weather warnings.
+- Multiple location dashboard.
+- Animated weather backgrounds.
+- Export weather data to CSV.
+- PyInstaller packaging for distribution.
+- Precipitation probability charts.
+- Wind direction compass widget.
+- Geolocation-based automatic city detection.
 
 ---
 
@@ -296,10 +384,10 @@ All core functionality verified:
 
 This project follows the AI-agent-friendly development workflow documented in `AGENTS.md`.
 
-1. Read `AGENTS.md` and `project-docs/PROJECT_STATUS.md` before contributing
-2. Follow the existing architecture (see `project-docs/ARCHITECTURE.md`)
-3. Update documentation files after every change
-4. Use parameterized SQL queries; never hardcode secrets
+1. Read `AGENTS.md` and `project-docs/PROJECT_STATUS.md` before contributing.
+2. Follow the existing architecture (see `project-docs/ARCHITECTURE.md`).
+3. Update documentation files after every change.
+4. Use parameterized SQL queries; never hardcode secrets.
 
 ---
 
